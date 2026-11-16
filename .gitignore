@@ -1,0 +1,19 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Données de l'application (conversations, pièces jointes, livrables, quotas, liste des admins) :
+# données personnelles des clients, jamais publiées.
+App_Data/
+
+# Secrets : uniquement dans les User Secrets (.NET) en local et les variables d'environnement en production.
+# Ces fichiers ne doivent jamais exister dans le dépôt.
+secrets.json
+appsettings.*.local.json
+appsettings.Production.json
+.env
+.env.*
+*.pfx
+*.pem
+*.key
