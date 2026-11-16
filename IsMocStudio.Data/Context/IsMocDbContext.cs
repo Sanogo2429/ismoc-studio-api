@@ -68,11 +68,11 @@ namespace IsMocStudio.Data.Context
                     .HasMaxLength(2000); // Pour stocker le prompt ou le besoin détaillé de l'IA (US 2.2)
 
                 entity.Property(p => p.JsonConfiguration)
-                    .HasColumnType("NVARCHAR(MAX)"); // Pour stocker proprement le gros JSON de configuration/modules (US 2.2 & 2.3)
+                    .HasColumnType("text"); // Texte de longueur illimitée (PostgreSQL) pour le gros JSON de configuration/modules (US 2.2 & 2.3)
 
                 entity.Property(p => p.CreatedAt)
                     .IsRequired()
-                    .HasDefaultValueSql("GETUTCDATE()"); // Date UTC automatique en base
+                    .HasDefaultValueSql("now()"); // Date automatique en base (timestamp with time zone, stocké en UTC)
 
                 // Relation 1-à-plusieurs : Un utilisateur possède plusieurs projets
                 entity.HasOne(p => p.User)

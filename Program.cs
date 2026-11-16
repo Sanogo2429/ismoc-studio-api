@@ -21,7 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Base de données
 builder.Services.AddDbContext<IsMocDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 2. Injection de dépendances
 builder.Services.AddScoped<IUnitOfWork, IsMocStudio.Data.UnitOfWork.UnitOfWork>();
