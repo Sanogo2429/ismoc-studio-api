@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 
@@ -295,22 +297,103 @@ app.Use(async (context, next) =>
 });
 
 // Configuration du pipeline HTTP
-if (app.Environment.IsDevelopment())
+// Swagger (documentation interactive), dans tous les environnements, affiché à la racine de l'API (« / »).
+// Son interface a besoin de scripts et de styles : la CSP stricte ci-dessus est remplacée, pour ses seules
+// pages, par une CSP limitée aux fichiers de l'API elle-même. Les routes de l'API gardent la CSP stricte.
+static bool IsApiRoute(PathString path) =>
+    path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs")
+    || path.StartsWithSegments("/health") || path.StartsWithSegments("/signin-google");
+
+app.Use(async (context, next) =>
 {
-    // Swagger (documentation interactive) : jamais exposé en production. Son interface a besoin de scripts :
-    // la CSP stricte ci-dessus est assouplie pour ses seules pages.
-    app.Use(async (context, next) =>
+    if (!IsApiRoute(context.Request.Path)) context.Response.OnStarting(() =>
     {
-        if (context.Request.Path.StartsWithSegments("/swagger")) context.Response.OnStarting(() =>
-        {
-            context.Response.Headers.Remove("Content-Security-Policy");
-            return Task.CompletedTask;
-        });
-        await next();
+        context.Response.Headers["Content-Security-Policy"] =
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; frame-ancestors 'none'";
+        return Task.CompletedTask;
     });
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    await next();
+});
+
+// Protection de Swagger par authentification basique (Basic Auth) : toutes les pages hors routes de l'API
+// (« / », « /index.html », ses scripts/styles et « /swagger/v1/swagger.json »).
+// Identifiants : « BasicAuth:Username » / « BasicAuth:Password » (User Secrets en local, variables
+// d'environnement BasicAuth__Username / BasicAuth__Password en production). Aucun mot de passe par défaut
+// n'est écrit dans le code : sans identifiants valides configurés, Swagger est FERMÉ (404) hors développement.
+const int SwaggerPasswordMinLength = 12;
+var swaggerUsername = app.Configuration["BasicAuth:Username"];
+var swaggerPassword = app.Configuration["BasicAuth:Password"];
+var swaggerCredentialsConfigured = !string.IsNullOrWhiteSpace(swaggerUsername)
+    && !string.IsNullOrEmpty(swaggerPassword) && swaggerPassword.Length >= SwaggerPasswordMinLength;
+if (!swaggerCredentialsConfigured && !app.Environment.IsDevelopment())
+{
+    app.Logger.LogWarning(
+        "Swagger désactivé : définissez BasicAuth__Username et BasicAuth__Password ({MinLength} caractères minimum).",
+        SwaggerPasswordMinLength);
 }
+
+app.Use(async (context, next) =>
+{
+    if (IsApiRoute(context.Request.Path))
+    {
+        await next();
+        return;
+    }
+
+    if (!swaggerCredentialsConfigured)
+    {
+        // Développement sans identifiants : Swagger reste ouvert sur le poste local. Production : fermé.
+        if (app.Environment.IsDevelopment()) await next();
+        else context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    if (TryReadBasicCredentials(context.Request, out var username, out var password)
+        & SecureEquals(username, swaggerUsername!)
+        & SecureEquals(password, swaggerPassword!))
+    {
+        await next();
+        return;
+    }
+
+    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    context.Response.Headers.WWWAuthenticate = "Basic realm=\"IsMoc Studio API\", charset=\"UTF-8\"";
+});
+
+// Lit l'en-tête « Authorization: Basic base64(utilisateur:mot-de-passe) ».
+static bool TryReadBasicCredentials(HttpRequest request, out string username, out string password)
+{
+    username = password = string.Empty;
+    var header = request.Headers.Authorization.ToString();
+    if (!header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase)) return false;
+    try
+    {
+        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..].Trim()));
+        var separator = decoded.IndexOf(':');
+        if (separator < 0) return false;
+        username = decoded[..separator];
+        password = decoded[(separator + 1)..];
+        return true;
+    }
+    catch (FormatException)
+    {
+        return false;
+    }
+}
+
+// Comparaison en temps constant (sur les empreintes SHA-256) : ni le contenu ni la longueur ne fuient par le temps de réponse.
+static bool SecureEquals(string candidate, string expected) =>
+    CryptographicOperations.FixedTimeEquals(
+        SHA256.HashData(Encoding.UTF8.GetBytes(candidate)),
+        SHA256.HashData(Encoding.UTF8.GetBytes(expected)));
+
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "IsMoc Studio API v1");
+    options.RoutePrefix = string.Empty;
+});
 
 app.UseHttpsRedirection();
 
