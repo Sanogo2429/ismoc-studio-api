@@ -45,6 +45,7 @@ namespace IsMocStudio.Business.Services
             var email = request.Email?.Trim() ?? string.Empty;
             var firstName = request.FirstName?.Trim() ?? string.Empty;
             var lastName = request.LastName?.Trim() ?? string.Empty;
+            ValidateRegistrationIdentity(email, firstName, lastName);
             ValidatePasswordStrength(request.Password);
 
             // Les adresses administrateur ne peuvent pas être créées par inscription libre : sans vérification de
@@ -259,6 +260,26 @@ namespace IsMocStudio.Business.Services
         private static string OtpCacheKey(string phoneNumber) => $"otp:{phoneNumber}";
         private static string OtpAttemptsKey(string phoneNumber) => $"otp-attempts:{phoneNumber}";
 
+        /// <summary>
+        /// Inscription : e-mail au format valide (254 caractères maximum), prénom et nom obligatoires (60 maximum).
+        /// Sans ce contrôle, une inscription avec un e-mail vide ou invalide était acceptée et affichée comme réussie.
+        /// </summary>
+        private static void ValidateRegistrationIdentity(string email, string firstName, string lastName)
+        {
+            if (firstName.Length is < 1 or > 60 || lastName.Length is < 1 or > 60)
+            {
+                throw new ArgumentException("Le prénom et le nom sont obligatoires (60 caractères maximum).");
+            }
+
+            if (email.Length is < 3 or > 254
+                || !System.Net.Mail.MailAddress.TryCreate(email, out var parsed)
+                || !string.Equals(parsed.Address, email, StringComparison.OrdinalIgnoreCase)
+                || !System.Text.RegularExpressions.Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$"))
+            {
+                throw new ArgumentException("Adresse e-mail invalide.");
+            }
+        }
+
         /// <summary>Mot de passe : 8 à 128 caractères, au moins une lettre et un chiffre.</summary>
         private static void ValidatePasswordStrength(string? password)
         {
@@ -363,23 +384,17 @@ namespace IsMocStudio.Business.Services
         }
 
         /// <summary>
-        /// Rôle Admin si l'e-mail figure dans AdminEmails (ou si le compte est déjà Admin en base,
-        /// auquel cas son e-mail rejoint la liste). Appelé avant chaque génération de JWT pour que
-        /// le claim ClaimTypes.Role reflète toujours ce rôle.
+        /// Rôle Admin si et seulement si l'e-mail figure dans « AdminEmails », sinon Client (un compte retiré
+        /// de la liste est rétrogradé). Appelé avant chaque génération de JWT : le claim ClaimTypes.Role, qui
+        /// décide de la redirection /admin ou /dashboard et des droits [Authorize(Roles = "Admin")], suit la liste.
         /// </summary>
         private async Task ApplyAdminPolicyAsync(User user)
         {
-            if (AdminBootstrapper.IsAdmin(user))
-            {
-                await _adminRegistry.AddAsync(user.Email);
-                return;
-            }
+            if (!AdminBootstrapper.SyncRole(user, _adminRegistry)) return;
 
-            if (!_adminRegistry.IsAdminEmail(user.Email)) return;
-
-            user.Role = AdminBootstrapper.Role;
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("Rôle du compte {UserId} aligné sur la liste des administrateurs : {Role}.", user.Id, user.Role);
         }
 
         public async Task<AuthResponseDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto request)

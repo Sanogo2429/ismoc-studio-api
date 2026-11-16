@@ -56,10 +56,9 @@ builder.Services.AddSignalR(options =>
 {
     options.PayloadSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
 });
-// E-mails administrateurs : « AdminEmails » (appsettings) + promotions automatiques (App_Data/admin-emails.json).
+// E-mails administrateurs : uniquement « AdminEmails » (appsettings.json / variables AdminEmails__0…).
 builder.Services.AddSingleton<IAdminAccessRegistry>(serviceProvider => new AdminAccessRegistry(
-    serviceProvider.GetRequiredService<IConfiguration>(),
-    Path.Combine(builder.Environment.ContentRootPath, "App_Data", "admin-emails.json")));
+    serviceProvider.GetRequiredService<IConfiguration>()));
 // Crédits IA gratuits par compte + limite anti-spam (« AiQuotas » dans appsettings.json).
 builder.Services.AddSingleton<IAiQuotaService>(serviceProvider => new AiQuotaService(
     serviceProvider.GetRequiredService<IConfiguration>(),
@@ -236,19 +235,26 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
-        var promoted = await AdminBootstrapper.PromoteAsync(
+        // Rôles alignés sur « AdminEmails » : promotion des comptes listés, rétrogradation en Client des autres Admin.
+        var roles = await AdminBootstrapper.SyncRolesAsync(
             scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
             scope.ServiceProvider.GetRequiredService<IAdminAccessRegistry>());
 
-        foreach (var user in promoted)
-        {
-            logger.LogInformation("Compte promu administrateur : {FullName} ({Email}).", $"{user.FirstName} {user.LastName}".Trim(), user.Email);
-        }
+        foreach (var user in roles.Promoted) logger.LogInformation("Compte promu administrateur : {UserId}.", user.Id);
+        foreach (var user in roles.Demoted) logger.LogWarning("Compte rétrogradé en Client (absent de AdminEmails) : {UserId}.", user.Id);
     }
     catch (Exception exception)
     {
-        logger.LogWarning(exception, "Promotion automatique de l'administrateur impossible (base de données indisponible ?).");
+        logger.LogWarning(exception, "Synchronisation des rôles impossible (base de données indisponible ?).");
     }
+
+    // Envoi d'e-mails (inscription, mot de passe oublié) : état visible dès le démarrage dans les journaux.
+    var smtp = SmtpSettings.FromConfiguration(app.Configuration);
+    if (smtp is null)
+        logger.LogWarning("Envoi d'e-mails désactivé ({Reason}) : définissez Smtp__Server, Smtp__Port, Smtp__User, Smtp__Pass et Smtp__From.",
+            SmtpSettings.MissingReason(app.Configuration));
+    else
+        logger.LogInformation("Envoi d'e-mails configuré via {Server}:{Port} (expéditeur {From}).", smtp.Server, smtp.Port, smtp.From);
 }
 
 app.UseForwardedHeaders();
