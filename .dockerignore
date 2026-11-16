@@ -1,0 +1,20 @@
+# Contexte de build Docker : uniquement le code source.
+# Les dossiers bin/obj Windows (chemins C:\...) feraient échouer « dotnet restore » sous Linux.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+
+# Données clients et secrets : jamais dans l'image (secrets = variables d'environnement Render).
+App_Data/
+**/secrets.json
+**/appsettings.*.local.json
+**/.env
+**/.env.*
+**/*.pfx
+**/*.pem
+**/*.key

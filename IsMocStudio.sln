@@ -5,11 +5,11 @@ VisualStudioVersion = 17.13.35931.197 d17.13
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.api", "IsMocStudio.api.csproj", "{20741149-0567-4446-9406-D9EC622C84E9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.Core", "..\IsMocStudio.Core\IsMocStudio.Core.csproj", "{8926E32D-36DA-4413-A2A8-AC88D6ED705A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.Core", "IsMocStudio.Core\IsMocStudio.Core.csproj", "{8926E32D-36DA-4413-A2A8-AC88D6ED705A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.Business", "..\IsMocStudio.Business\IsMocStudio.Business.csproj", "{5AFBBD70-3CC7-4024-BC20-0CDC1C6FF3A7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.Business", "IsMocStudio.Business\IsMocStudio.Business.csproj", "{5AFBBD70-3CC7-4024-BC20-0CDC1C6FF3A7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.Data", "..\IsMocStudio.Data\IsMocStudio.Data.csproj", "{54111C18-81D3-49FF-9392-7CFFE014A275}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsMocStudio.Data", "IsMocStudio.Data\IsMocStudio.Data.csproj", "{54111C18-81D3-49FF-9392-7CFFE014A275}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

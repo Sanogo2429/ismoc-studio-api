@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>9dccf542-0084-4493-ae0a-8482acc80f05</UserSecretsId>
+    <!-- Core / Business / Data sont des sous-dossiers du depot : compiles par leur propre .csproj
+         (ProjectReference), jamais une seconde fois dans l'API. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);IsMocStudio.Core/**;IsMocStudio.Business/**;IsMocStudio.Data/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,8 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\IsMocStudio.Business\IsMocStudio.Business.csproj" />
-    <ProjectReference Include="..\IsMocStudio.Data\IsMocStudio.Data.csproj" />
+    <ProjectReference Include="IsMocStudio.Business\IsMocStudio.Business.csproj" />
+    <ProjectReference Include="IsMocStudio.Data\IsMocStudio.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
 
 </Project>
