@@ -89,7 +89,11 @@ builder.Services.AddCors(options =>
             policy.SetIsOriginAllowed(frontendOrigins.IsAllowed)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials();
+                  .AllowCredentials()
+                  // Site (Vercel) et API (Render) sur deux domaines : chaque appel authentifié est précédé d'une
+                  // requête de contrôle OPTIONS (un aller-retour réseau de plus). Le navigateur la mémorise désormais
+                  // (plafonné à 2 h par Chrome, ~10 min par Safari) au lieu de la refaire à chaque appel.
+                  .SetPreflightMaxAge(TimeSpan.FromHours(2));
         });
 });
 
