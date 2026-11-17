@@ -43,6 +43,33 @@ namespace IsMocStudio.Api.Controllers // ou IsMocStudio.api.Controllers selon to
             }
         }
 
+        // POST: api/users/email-test
+        // Diagnostic administrateur : envoie un e-mail de test À L'ADMINISTRATEUR CONNECTÉ (jamais à une adresse
+        // saisie, pas de relais ouvert) et renvoie le résultat SMTP exact (code, réponse du serveur) sans secret.
+        [HttpPost("email-test")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(IsMocStudio.api.Security.RateLimitPolicies.PasswordReset)]
+        public async Task<IActionResult> SendTestEmail(
+            [FromServices] IEmailService emailService,
+            [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration)
+        {
+            var adminEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            if (string.IsNullOrWhiteSpace(adminEmail)) return BadRequest(new { Message = "Adresse e-mail du compte introuvable dans la session." });
+
+            var settings = IsMocStudio.Business.Services.SmtpSettings.FromConfiguration(configuration);
+            var smtp = settings is null ? null : new { settings.Server, settings.Port, Sender = settings.From, settings.EnableSsl, SenderIsSmtpLogin = settings.FromLooksLikeSmtpLogin };
+
+            try
+            {
+                await emailService.SendEmailAsync(adminEmail, "Test d'envoi d'e-mails - IsMoc Studio",
+                    "<p>Bonjour,</p><p>Cet e-mail de test confirme que l'envoi d'e-mails d'IsMoc Studio fonctionne.</p>");
+                return Ok(new { Sent = true, Message = "E-mail de test accepté par le serveur SMTP. Vérifiez votre boîte de réception (et les spams).", Smtp = smtp });
+            }
+            catch (IsMocStudio.Business.Services.EmailDeliveryException exception)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, new { Sent = false, Message = exception.Diagnostic, Smtp = smtp });
+            }
+        }
+
         // DELETE: api/users/{id}
         // Permet de supprimer un client
         [HttpDelete("{id}")]

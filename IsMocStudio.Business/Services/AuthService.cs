@@ -82,7 +82,9 @@ namespace IsMocStudio.Business.Services
             await TrySendNotificationAsync(
                 email,
                 "Bienvenue sur IsMoc Studio ! 🎉",
-                "Ton compte a été créé avec succès. Tu es prêt à modéliser l'application de tes rêves !"
+                NotificationBody(firstName,
+                    "Votre compte IsMoc Studio a bien été créé.",
+                    "Vous pouvez dès maintenant vous connecter pour concevoir votre site ou votre application avec IsMoc AI, puis suivre son développement avec notre équipe.")
             );
 
             return new AuthResponseDto
@@ -119,8 +121,10 @@ namespace IsMocStudio.Business.Services
             // Alerte de connexion : informative, une panne SMTP ne doit pas empêcher de se connecter.
             await TrySendNotificationAsync(
                 user.Email,
-                "Nouvelle connexion à votre compte",
-                "Une nouvelle connexion a été détectée sur votre compte IsMoc Studio."
+                "Nouvelle connexion à votre compte IsMoc Studio",
+                NotificationBody(user.FirstName,
+                    $"Une nouvelle connexion à votre compte IsMoc Studio a eu lieu le {ParisNow()}.",
+                    "Si c'est bien vous, aucune action n'est nécessaire. Sinon, modifiez votre mot de passe dans « Paramètres » et contactez l'équipe IsMoc.")
             );
 
             return new AuthResponseDto
@@ -211,14 +215,36 @@ namespace IsMocStudio.Business.Services
                 try
                 {
                     await emailService.SendEmailAsync(toEmail, subject, body);
-                    logger.LogInformation("E-mail de notification « {Subject} » envoyé.", subject);
+                }
+                catch (EmailDeliveryException exception)
+                {
+                    // Déjà journalisé en détail par EmailService (code SMTP, réponse du serveur, expéditeur…).
+                    logger.LogWarning("Notification « {Subject} » abandonnée : {Diagnostic}", subject, exception.Diagnostic);
                 }
                 catch (Exception exception)
                 {
-                    logger.LogWarning(exception, "E-mail de notification « {Subject} » non envoyé.", subject);
+                    logger.LogError(exception, "Notification « {Subject} » abandonnée : erreur inattendue.", subject);
                 }
             });
             return Task.CompletedTask;
+        }
+
+        /// <summary>Corps HTML d'une notification : salutation (prénom échappé) puis paragraphes (texte échappé).</summary>
+        private static string NotificationBody(string? firstName, params string[] paragraphs)
+        {
+            var name = string.IsNullOrWhiteSpace(firstName) ? string.Empty : $" {WebUtility.HtmlEncode(firstName.Trim())}";
+            return $"<p>Bonjour{name},</p>" + string.Concat(paragraphs.Select(paragraph => $"<p>{WebUtility.HtmlEncode(paragraph)}</p>"))
+                + "<p>À très vite,<br>L'équipe IsMoc Studio</p>";
+        }
+
+        /// <summary>Date et heure de Paris (le serveur Render est en UTC).</summary>
+        private static string ParisNow()
+        {
+            var zone = TimeZoneInfo.TryFindSystemTimeZoneById("Europe/Paris", out var paris) ? paris
+                : TimeZoneInfo.TryFindSystemTimeZoneById("Romance Standard Time", out var romance) ? romance : TimeZoneInfo.Utc;
+            var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+            return now.ToString("dd/MM/yyyy 'à' HH:mm", System.Globalization.CultureInfo.GetCultureInfo("fr-FR"))
+                + (zone == TimeZoneInfo.Utc ? " (UTC)" : " (heure de Paris)");
         }
 
         public async Task<AuthResponseDto> GoogleLoginAsync(string email, string firstName, string lastName)
@@ -244,15 +270,19 @@ namespace IsMocStudio.Business.Services
                 await TrySendNotificationAsync(
                     email,
                     "Bienvenue sur IsMoc Studio ! 🎉",
-                    "Ton compte a été créé avec succès via Google."
+                    NotificationBody(user.FirstName,
+                        "Votre compte IsMoc Studio a bien été créé avec votre compte Google.",
+                        "Vous pouvez dès maintenant concevoir votre site ou votre application avec IsMoc AI, puis suivre son développement avec notre équipe.")
                 );
             }
             else
             {
                 await TrySendNotificationAsync(
                     user.Email,
-                    "Nouvelle connexion à votre compte via Google",
-                    "Une nouvelle connexion a été détectée sur votre compte IsMoc Studio via Google."
+                    "Nouvelle connexion à votre compte IsMoc Studio",
+                    NotificationBody(user.FirstName,
+                        $"Une nouvelle connexion à votre compte IsMoc Studio avec Google a eu lieu le {ParisNow()}.",
+                        "Si c'est bien vous, aucune action n'est nécessaire. Sinon, sécurisez votre compte Google et contactez l'équipe IsMoc.")
                 );
             }
 
