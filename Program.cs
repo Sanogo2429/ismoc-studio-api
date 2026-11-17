@@ -64,7 +64,8 @@ builder.Services.AddSingleton<IAiQuotaService>(serviceProvider => new AiQuotaSer
     serviceProvider.GetRequiredService<IConfiguration>(),
     Path.Combine(builder.Environment.ContentRootPath, "App_Data", "ai-quotas.json")));
 builder.Services.AddHttpClient();
-builder.Services.AddScoped<IEmailService, EmailService>();
+// Singleton sans état (configuration + journal) : utilisable par les envois en arrière-plan après la requête.
+builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<TokenHelper>();

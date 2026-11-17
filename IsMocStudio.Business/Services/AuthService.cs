@@ -196,22 +196,35 @@ namespace IsMocStudio.Business.Services
             }
         }
 
-        /// <summary>E-mail informatif (bienvenue, alerte de connexion) : un échec est journalisé, jamais bloquant.</summary>
-        private async Task TrySendNotificationAsync(string toEmail, string subject, string body)
+        /// <summary>
+        /// E-mail informatif (bienvenue, alerte de connexion) envoyé EN ARRIÈRE-PLAN : la connexion (notamment le
+        /// retour de Google) n'attend jamais le serveur SMTP, et un échec n'est jamais bloquant.
+        /// Succès comme échec sont journalisés, pour diagnostiquer l'envoi depuis les logs Render.
+        /// (EmailService est un singleton sans état : il reste utilisable après la fin de la requête.)
+        /// </summary>
+        private Task TrySendNotificationAsync(string toEmail, string subject, string body)
         {
-            try
+            var emailService = _emailService;
+            var logger = _logger;
+            _ = Task.Run(async () =>
             {
-                await _emailService.SendEmailAsync(toEmail, subject, body);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "E-mail de notification « {Subject} » non envoyé.", subject);
-            }
+                try
+                {
+                    await emailService.SendEmailAsync(toEmail, subject, body);
+                    logger.LogInformation("E-mail de notification « {Subject} » envoyé.", subject);
+                }
+                catch (Exception exception)
+                {
+                    logger.LogWarning(exception, "E-mail de notification « {Subject} » non envoyé.", subject);
+                }
+            });
+            return Task.CompletedTask;
         }
 
         public async Task<AuthResponseDto> GoogleLoginAsync(string email, string firstName, string lastName)
         {
             var user = await _unitOfWork.Users.GetByEmailAsync(email);
+            var isNewAccount = user == null;
 
             if (user == null)
             {
@@ -221,7 +234,8 @@ namespace IsMocStudio.Business.Services
                     FirstName = firstName ?? "Utilisateur",
                     LastName = lastName ?? "Google",
                     PasswordHash = PasswordHelper.HashPassword(Guid.NewGuid().ToString()),
-                    Role = "Client"
+                    // Rôle standard par défaut ; Admin uniquement via la liste AdminEmails (ApplyAdminPolicyAsync).
+                    Role = AdminBootstrapper.ClientRole
                 };
 
                 await _unitOfWork.Users.AddAsync(user);
@@ -244,6 +258,14 @@ namespace IsMocStudio.Business.Services
 
             await ApplyAdminPolicyAsync(user);
             var token = _tokenHelper.GenerateJwtToken(user);
+
+            // Traçabilité : rôle attribué et sa raison (la redirection /admin ou /dashboard en découle).
+            _logger.LogInformation(
+                "Connexion Google : compte {UserId} ({AccountState}), rôle {Role} ({Reason}).",
+                user.Id,
+                isNewAccount ? "créé" : "existant",
+                user.Role,
+                AdminBootstrapper.IsAdmin(user) ? "e-mail présent dans AdminEmails" : "rôle standard");
 
             return new AuthResponseDto
             {
