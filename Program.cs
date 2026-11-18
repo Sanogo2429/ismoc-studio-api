@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using IsMocStudio.Data.Context;
 using IsMocStudio.Data.Services;
+using Microsoft.AspNetCore.DataProtection;
 using IsMocStudio.Core.Interfaces.Repositories;
 using IsMocStudio.Core.Interfaces.Services;
 using IsMocStudio.Business.Services;
@@ -28,6 +29,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<IsMocDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped(serviceProvider => serviceProvider.GetRequiredService<IDbContextFactory<IsMocDbContext>>().CreateDbContext());
+
+// Clés DataProtection en base (table DataProtectionKeys) : les cookies de la connexion Google restent valides après
+// un redéploiement ou un redémarrage Render (le dossier du conteneur est effacé).
+builder.Services.AddDataProtection()
+    .SetApplicationName("IsMocStudio")
+    .PersistKeysToDbContext<IsMocDbContext>();
 
 // 2. Injection de dépendances
 builder.Services.AddScoped<IUnitOfWork, IsMocStudio.Data.UnitOfWork.UnitOfWork>();

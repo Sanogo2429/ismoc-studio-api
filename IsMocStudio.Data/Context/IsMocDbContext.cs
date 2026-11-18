@@ -1,10 +1,11 @@
 ﻿using IsMocStudio.Core.Entities;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System;
 
 namespace IsMocStudio.Data.Context
 {
-    public class IsMocDbContext : DbContext
+    public class IsMocDbContext : DbContext, IDataProtectionKeyContext
     {
         public IsMocDbContext(DbContextOptions<IsMocDbContext> options) : base(options)
         {
@@ -17,6 +18,9 @@ namespace IsMocStudio.Data.Context
         public DbSet<ProjectMemoryRecord> ProjectMemories => Set<ProjectMemoryRecord>();
         public DbSet<ProjectDeliverableRecord> ProjectDeliverables => Set<ProjectDeliverableRecord>();
         public DbSet<AiQuotaUsage> AiQuotaUsages => Set<AiQuotaUsage>();
+
+        // Clés ASP.NET Core DataProtection (cookies de la connexion Google) : conservées entre les redéploiements.
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
