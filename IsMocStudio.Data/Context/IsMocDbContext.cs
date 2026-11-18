@@ -18,6 +18,7 @@ namespace IsMocStudio.Data.Context
         public DbSet<ProjectMemoryRecord> ProjectMemories => Set<ProjectMemoryRecord>();
         public DbSet<ProjectDeliverableRecord> ProjectDeliverables => Set<ProjectDeliverableRecord>();
         public DbSet<AiQuotaUsage> AiQuotaUsages => Set<AiQuotaUsage>();
+        public DbSet<ProjectAttachmentRecord> ProjectAttachments => Set<ProjectAttachmentRecord>();
 
         // Clés ASP.NET Core DataProtection (cookies de la connexion Google) : conservées entre les redéploiements.
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
@@ -117,6 +118,23 @@ namespace IsMocStudio.Data.Context
                 entity.Property(deliverable => deliverable.ProjectId).HasMaxLength(32);
                 entity.Property(deliverable => deliverable.DesignHtml).IsRequired().HasColumnType("text");
                 entity.Property(deliverable => deliverable.SpecificationJson).IsRequired().HasColumnType("text");
+            });
+
+            // ==========================================
+            // PIÈCES JOINTES ET NOTES VOCALES (contenu dans Supabase Storage, ex-App_Data/Attachments)
+            // ==========================================
+            modelBuilder.Entity<ProjectAttachmentRecord>(entity =>
+            {
+                entity.ToTable("ProjectAttachments");
+                entity.HasKey(attachment => attachment.FileName);
+                entity.Property(attachment => attachment.FileName).HasMaxLength(160);
+                entity.Property(attachment => attachment.ProjectId).IsRequired().HasMaxLength(32);
+                entity.Property(attachment => attachment.StorageKey).IsRequired().HasMaxLength(200);
+                entity.Property(attachment => attachment.OriginalName).IsRequired().HasMaxLength(130);
+                entity.Property(attachment => attachment.ContentType).IsRequired().HasMaxLength(120);
+                entity.Property(attachment => attachment.Kind).IsRequired().HasMaxLength(10);
+                entity.HasIndex(attachment => attachment.ProjectId);
+                entity.HasIndex(attachment => attachment.StorageKey).IsUnique();
             });
 
             // ==========================================

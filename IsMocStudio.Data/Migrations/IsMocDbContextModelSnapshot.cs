@@ -84,6 +84,53 @@ namespace IsMocStudio.Data.Migrations
                     b.ToTable("Projects");
                 });
 
+            modelBuilder.Entity("IsMocStudio.Core.Entities.ProjectAttachmentRecord", b =>
+                {
+                    b.Property<string>("FileName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("OriginalName")
+                        .IsRequired()
+                        .HasMaxLength(130)
+                        .HasColumnType("character varying(130)");
+
+                    b.Property<string>("ProjectId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("FileName");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("ProjectAttachments", (string)null);
+                });
+
             modelBuilder.Entity("IsMocStudio.Core.Entities.ProjectDeliverableRecord", b =>
                 {
                     b.Property<string>("ProjectId")

@@ -27,6 +27,26 @@ namespace IsMocStudio.Core.Entities
         public DateTimeOffset GeneratedAt { get; set; }
     }
 
+    /// <summary>
+    /// Pièce jointe ou note vocale d'un projet (le contenu est dans le stockage de fichiers, clé <see cref="StorageKey"/>).
+    /// </summary>
+    public class ProjectAttachmentRecord
+    {
+        /// <summary>Nom public « {guid}__{nom-original} », utilisé dans l'URL de l'API.</summary>
+        public string FileName { get; set; } = string.Empty;
+        public string ProjectId { get; set; } = string.Empty;
+
+        /// <summary>Clé ASCII dans le stockage : projects/{projectId}/{guid}{extension}.</summary>
+        public string StorageKey { get; set; } = string.Empty;
+        public string OriginalName { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
+        public long Size { get; set; }
+
+        /// <summary>« file » ou « voice ».</summary>
+        public string Kind { get; set; } = "file";
+        public DateTimeOffset CreatedAt { get; set; }
+    }
+
     /// <summary>Crédits IA gratuits consommés par un compte (anciennement App_Data/ai-quotas.json).</summary>
     public class AiQuotaUsage
     {

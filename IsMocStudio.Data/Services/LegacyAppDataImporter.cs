@@ -1,6 +1,7 @@
 using System.Text.Json;
 using IsMocStudio.Core.DTOs;
 using IsMocStudio.Core.Entities;
+using IsMocStudio.Core.Interfaces.Services;
 using IsMocStudio.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -152,6 +153,78 @@ namespace IsMocStudio.Data.Services
             }
 
             return new Result(memories, deliverables, quotas, skipped, failed);
+        }
+
+        /// <summary>
+        /// Import unique des anciennes pièces jointes App_Data/Attachments/{projectId}/{guid}__{nom} vers le stockage
+        /// de fichiers (Supabase) + table ProjectAttachments. Le nom public est conservé : les URL déjà présentes
+        /// dans les messages restent valides. Fichier importé ou déjà en base → supprimé du disque.
+        /// </summary>
+        public static async Task<(int Imported, int Skipped, int Failed)> ImportAttachmentsAsync(
+            IDbContextFactory<IsMocDbContext> contextFactory, IFileStorage storage, string appDataDirectory, ILogger logger, CancellationToken cancellationToken = default)
+        {
+            int imported = 0, skipped = 0, failed = 0;
+            var root = Path.Combine(appDataDirectory, "Attachments");
+            if (!Directory.Exists(root)) return (0, 0, 0);
+
+            await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
+            foreach (var directory in Directory.EnumerateDirectories(root))
+            {
+                var projectId = Path.GetFileName(directory);
+                if (!Guid.TryParseExact(projectId, "N", out _)) continue;
+
+                foreach (var path in Directory.EnumerateFiles(directory))
+                {
+                    var fileName = Path.GetFileName(path);
+                    if (!Core.Helpers.AttachmentRules.StoredName.IsMatch(fileName) || !Guid.TryParseExact(fileName[..32], "N", out var id)) continue;
+                    try
+                    {
+                        if (await db.ProjectAttachments.AnyAsync(record => record.FileName == fileName, cancellationToken))
+                        {
+                            skipped++;
+                        }
+                        else
+                        {
+                            var originalName = fileName[34..];
+                            var extension = Path.GetExtension(originalName);
+                            var record = new ProjectAttachmentRecord
+                            {
+                                FileName = fileName,
+                                ProjectId = projectId,
+                                StorageKey = StoredProjectAttachmentService.StorageKeyFor(projectId, id, extension),
+                                OriginalName = originalName,
+                                ContentType = Core.Helpers.AttachmentRules.ContentTypeFor(originalName),
+                                Size = new FileInfo(path).Length,
+                                Kind = Core.Helpers.AttachmentRules.IsVoiceExtension(extension) && originalName.StartsWith("note-vocale", StringComparison.Ordinal)
+                                    ? StoredProjectAttachmentService.VoiceKind : StoredProjectAttachmentService.FileKind,
+                                CreatedAt = new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero)
+                            };
+
+                            await using (var stream = File.OpenRead(path))
+                            {
+                                await storage.PutAsync(record.StorageKey, stream, record.ContentType, cancellationToken);
+                            }
+
+                            db.ProjectAttachments.Add(record);
+                            await db.SaveChangesAsync(cancellationToken);
+                            imported++;
+                        }
+
+                        File.Delete(path);
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        failed++;
+                        db.ChangeTracker.Clear();
+                        logger.LogWarning(exception, "Import de la pièce jointe {ProjectId}/{FileName} impossible : fichier conservé.", projectId, fileName);
+                    }
+                }
+
+                DeleteIfEmpty(directory);
+            }
+
+            DeleteIfEmpty(root);
+            return (imported, skipped, failed);
         }
 
         private static void DeleteIfEmpty(string directory)

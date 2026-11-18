@@ -8,6 +8,7 @@ using IsMocStudio.Business.Services;
 using IsMocStudio.Business.Helpers;
 using IsMocStudio.api.Hubs;
 using IsMocStudio.api.Security;
+using IsMocStudio.api.Storage;
 using IsMocStudio.Api.Controllers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -54,8 +55,29 @@ builder.Services.AddHttpClient<AnthropicMessagesClient>(client =>
 // Discussions, dossiers de conception et crédits IA : en base (le disque du conteneur Render est éphémère).
 builder.Services.AddSingleton<IProjectMemoryService, EfProjectMemoryService>();
 builder.Services.AddSingleton<IProjectDeliverableService, EfProjectDeliverableService>();
-builder.Services.AddSingleton<IProjectAttachmentService>(_ => new ProjectAttachmentService(
-    Path.Combine(builder.Environment.ContentRootPath, "App_Data", "Attachments")));
+
+// Fichiers (pièces jointes, notes vocales) : bucket PRIVÉ Supabase Storage si « Supabase:Url » et « Supabase:ServiceKey »
+// sont définis, sinon disque local (développement). Lecture uniquement par lien signé de courte durée.
+var supabaseStorage = SupabaseStorageOptions.FromConfiguration(builder.Configuration);
+var signedLinkLifetime = TimeSpan.FromMinutes(
+    int.TryParse(builder.Configuration["Supabase:SignedUrlMinutes"], out var linkMinutes) && linkMinutes is >= 1 and <= 60 ? linkMinutes : 10);
+if (supabaseStorage is not null)
+{
+    builder.Services.AddSingleton(supabaseStorage);
+    builder.Services.AddHttpClient(SupabaseFileStorage.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(60));
+    builder.Services.AddSingleton<SupabaseFileStorage>();
+    builder.Services.AddSingleton<IFileStorage>(serviceProvider => serviceProvider.GetRequiredService<SupabaseFileStorage>());
+}
+else
+{
+    builder.Services.AddSingleton<IFileStorage>(serviceProvider => new LocalFileStorage(
+        Path.Combine(builder.Environment.ContentRootPath, "App_Data", "Storage"),
+        serviceProvider.GetRequiredService<IDataProtectionProvider>()));
+}
+builder.Services.AddSingleton<IProjectAttachmentService>(serviceProvider => new StoredProjectAttachmentService(
+    serviceProvider.GetRequiredService<IDbContextFactory<IsMocDbContext>>(),
+    serviceProvider.GetRequiredService<IFileStorage>(),
+    signedLinkLifetime));
 
 // Temps réel : messagerie, présence et signalisation WebRTC.
 builder.Services.AddSingleton<ProjectPresenceTracker>();
@@ -265,6 +287,27 @@ using (var scope = app.Services.CreateScope())
     catch (Exception exception)
     {
         logger.LogError(exception, "Migration ou import de la base impossible au démarrage (base de données indisponible ?).");
+    }
+
+    // --- Stockage des fichiers : bucket privé vérifié (créé au besoin), puis import des anciennes pièces jointes ---
+    try
+    {
+        var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+        if (storage is SupabaseFileStorage supabase) await supabase.EnsureBucketAsync();
+        else if (!app.Environment.IsDevelopment())
+            logger.LogWarning("Supabase Storage non configuré (Supabase__Url, Supabase__ServiceKey) : fichiers sur le disque du conteneur, effacés à chaque redéploiement.");
+        logger.LogInformation("Stockage des fichiers : {Storage}.", storage.Name);
+
+        var attachments = await LegacyAppDataImporter.ImportAttachmentsAsync(
+            scope.ServiceProvider.GetRequiredService<IDbContextFactory<IsMocDbContext>>(), storage,
+            Path.Combine(app.Environment.ContentRootPath, "App_Data"), logger);
+        if (attachments.Imported + attachments.Skipped + attachments.Failed > 0)
+            logger.LogInformation("Import des pièces jointes : {Imported} envoyée(s) vers le stockage, {Skipped} déjà présente(s), {Failed} en échec.",
+                attachments.Imported, attachments.Skipped, attachments.Failed);
+    }
+    catch (Exception exception)
+    {
+        logger.LogError(exception, "Stockage des fichiers indisponible au démarrage (réglages Supabase ?).");
     }
 
     try

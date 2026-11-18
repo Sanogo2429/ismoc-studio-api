@@ -148,7 +148,7 @@ namespace IsMocStudio.api.Hubs
             EnsureJoined(projectId);
             var memory = await GetAccessibleMemoryAsync(projectId);
 
-            var attachment = _attachmentService.Resolve(projectId, attachmentUrl);
+            var attachment = await _attachmentService.ResolveAsync(projectId, attachmentUrl, Context.ConnectionAborted);
             if (!string.IsNullOrWhiteSpace(attachmentUrl) && attachment is null) throw new HubException("Pièce jointe introuvable.");
 
             var isTeam = IsTeamMember(memory);

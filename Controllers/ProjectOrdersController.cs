@@ -220,7 +220,7 @@ namespace IsMocStudio.api.Controllers
             var (memory, error) = await ResolveAccessAsync(projectId);
             if (error is not null) return error;
 
-            var attachment = _attachmentService.Resolve(projectId, request?.AttachmentUrl);
+            var attachment = await _attachmentService.ResolveAsync(projectId, request?.AttachmentUrl, HttpContext.RequestAborted);
             if (!string.IsNullOrWhiteSpace(request?.AttachmentUrl) && attachment is null) return BadRequest(new { Message = "Pièce jointe introuvable." });
 
             var isOwner = string.Equals(memory!.OwnerId, CurrentUserId(), StringComparison.Ordinal);
@@ -252,26 +252,51 @@ namespace IsMocStudio.api.Controllers
             if (file.Length > _attachmentService.MaxFileBytes) return BadRequest(new { Message = "Le fichier dépasse 10 Mo." });
             if (!_attachmentService.IsAllowed(file.FileName)) return BadRequest(new { Message = "Type de fichier non autorisé (images, PDF, Office, TXT, CSV ou ZIP)." });
 
-            await using var stream = file.OpenReadStream();
-            var attachment = await _attachmentService.SaveAsync(projectId, stream, file.FileName, HttpContext.RequestAborted);
-            return Utf8Json(new { url = attachment.Url, name = attachment.OriginalName, contentType = attachment.ContentType, size = attachment.Size });
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var attachment = await _attachmentService.SaveAsync(projectId, stream, file.FileName, HttpContext.RequestAborted);
+                return Utf8Json(new { url = attachment.Url, name = attachment.OriginalName, contentType = attachment.ContentType, size = attachment.Size });
+            }
+            catch (ArgumentException exception)
+            {
+                return BadRequest(new { Message = exception.Message });
+            }
+        }
+
+        // GET: api/Projects/{projectId}/attachments/{fileName}/link?download=true
+        // Lien signé temporaire (10 min) vers le fichier privé, délivré après vérification des droits sur le projet.
+        [HttpGet("{projectId}/attachments/{fileName}/link")]
+        public async Task<IActionResult> GetAttachmentLink(string projectId, string fileName, [FromQuery] bool download = false)
+        {
+            var (_, error) = await ResolveAccessAsync(projectId);
+            if (error is not null) return error;
+
+            var link = await _attachmentService.CreateLinkAsync(projectId, fileName, download, HttpContext.RequestAborted);
+            if (link is null) return NotFound(new { Message = "Pièce jointe introuvable." });
+
+            Response.Headers.CacheControl = "no-store";
+            return Utf8Json(new { url = AbsoluteUrl(link.Url), expiresAt = link.ExpiresAt });
         }
 
         // GET: api/Projects/{projectId}/attachments/{fileName}
+        // Ancienne adresse (versions précédentes de l'application) : redirige vers un lien signé temporaire.
         [HttpGet("{projectId}/attachments/{fileName}")]
         public async Task<IActionResult> DownloadAttachment(string projectId, string fileName)
         {
             var (_, error) = await ResolveAccessAsync(projectId);
             if (error is not null) return error;
 
-            var found = _attachmentService.Find(projectId, fileName);
-            if (found is null) return NotFound(new { Message = "Pièce jointe introuvable." });
+            var link = await _attachmentService.CreateLinkAsync(projectId, fileName, download: false, HttpContext.RequestAborted);
+            if (link is null) return NotFound(new { Message = "Pièce jointe introuvable." });
 
-            var (path, attachment) = found.Value;
-            // nosniff : le navigateur respecte le type déclaré (pas d'exécution d'un fichier détourné).
-            Response.Headers.XContentTypeOptions = "nosniff";
-            return PhysicalFile(path, attachment.ContentType, attachment.OriginalName, enableRangeProcessing: true);
+            Response.Headers.CacheControl = "no-store";
+            return Redirect(AbsoluteUrl(link.Url));
         }
+
+        /// <summary>Lien local (« /api/files/… ») complété avec l'adresse de l'API ; lien Supabase déjà absolu.</summary>
+        private string AbsoluteUrl(string url) =>
+            url.StartsWith('/') ? $"{Request.Scheme}://{Request.Host}{Request.PathBase}{url}" : url;
 
         // POST: api/Projects/{projectId}/voice-notes  (bouton micro du chat — propriétaire du fil ou Admin)
         [HttpPost("{projectId}/voice-notes")]
@@ -288,11 +313,11 @@ namespace IsMocStudio.api.Controllers
                 await using var stream = file.OpenReadStream();
                 // Type déclaré normalisé (« audio/webm;codecs=opus » → « audio/webm »), puis format réel
                 // détecté par magic bytes (WebM, Ogg, MP4/M4A, MP3, WAV) ; nom de fichier GUID.
-                var contentType = Business.Services.ProjectAttachmentService.NormalizeContentType(file.ContentType);
+                var contentType = Core.Helpers.AttachmentRules.NormalizeContentType(file.ContentType);
                 var voiceNote = await _attachmentService.SaveVoiceNoteAsync(projectId, stream, contentType, HttpContext.RequestAborted);
                 return Utf8Json(new { url = voiceNote.Url, name = voiceNote.OriginalName, contentType = voiceNote.ContentType, size = voiceNote.Size });
             }
-            catch (Business.Services.InvalidAudioSignatureException exception)
+            catch (Core.Helpers.InvalidAudioSignatureException exception)
             {
                 Logger.LogWarning("Note vocale refusée sur {ProjectId} : type déclaré {DeclaredType}, {Length} octets, en-tête {HeaderHex}.",
                     projectId, exception.DeclaredType, exception.Length, exception.HeaderHex);
