@@ -1,6 +1,6 @@
 namespace IsMocStudio.Core.DTOs
 {
-    /// <summary>Profil du compte connecté (onglet Paramètres).</summary>
+    /// <summary>Profil du compte connecté (onglet Profil).</summary>
     public class AccountProfileDto
     {
         public int Id { get; set; }
@@ -11,6 +11,9 @@ namespace IsMocStudio.Core.DTOs
         public string PhoneNumber { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+
+        /// <summary>Le compte a un mot de passe IsMoc (faux pour un compte créé avec Google sans mot de passe défini).</summary>
+        public bool HasPassword { get; set; }
 
         /// <summary>JWT régénéré avec le rôle courant (ex. compte promu Admin depuis la dernière connexion).</summary>
         public string Token { get; set; } = string.Empty;

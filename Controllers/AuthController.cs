@@ -183,8 +183,12 @@ namespace IsMocStudio.Api.Controllers
         }
 
         // ------------------------------------------------------------------
-        // Compte connecté (onglet Paramètres)
+        // Compte connecté (onglet Profil)
         // ------------------------------------------------------------------
+
+        /// <summary>Méthode de connexion de la session (claim « amr », renommé par la validation JWT .NET).</summary>
+        private string? CurrentAuthMethod() =>
+            User.FindFirst("amr")?.Value ?? User.FindFirst("http://schemas.microsoft.com/claims/authnmethodsreferences")?.Value;
 
         // GET: api/auth/me
         [Authorize]
@@ -194,7 +198,7 @@ namespace IsMocStudio.Api.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized(new { Message = "Utilisateur non identifié." });
             try
             {
-                return Ok(await _authService.GetProfileAsync(userId));
+                return Ok(await _authService.GetProfileAsync(userId, CurrentAuthMethod()));
             }
             catch (KeyNotFoundException ex)
             {
@@ -210,7 +214,7 @@ namespace IsMocStudio.Api.Controllers
             if (!TryGetUserId(out var userId)) return Unauthorized(new { Message = "Utilisateur non identifié." });
             try
             {
-                return Ok(await _authService.UpdateProfileAsync(userId, request));
+                return Ok(await _authService.UpdateProfileAsync(userId, request, CurrentAuthMethod()));
             }
             catch (ArgumentException ex)
             {

@@ -66,7 +66,11 @@ namespace IsMocStudio.Business.Helpers
             RoleClaimType = ClaimTypes.Role
         };
 
-        public string GenerateJwtToken(User user)
+        /// <summary>Méthode de connexion d'une session Google, portée par le jeton (claim « amr »).</summary>
+        public const string GoogleAuthMethod = "google";
+
+        /// <param name="authMethod">Méthode de connexion de la session (ex. « google ») : conservée lors des régénérations.</param>
+        public string GenerateJwtToken(User user, string? authMethod = null)
         {
             var expiryHours = int.TryParse(_configuration["JwtSettings:ExpiryHours"], out var hours) && hours is > 0 and <= 24 * 30
                 ? hours
@@ -82,6 +86,7 @@ namespace IsMocStudio.Business.Helpers
                 // Identifiant unique du jeton (traçabilité / révocation future).
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
             };
+            if (!string.IsNullOrWhiteSpace(authMethod)) claims.Add(new Claim(JwtRegisteredClaimNames.Amr, authMethod));
 
             var now = DateTime.UtcNow;
             var tokenDescriptor = new SecurityTokenDescriptor

@@ -22,11 +22,11 @@ namespace IsMocStudio.Core.Interfaces.Services
         // 2. Vérifie le code SMS et connecte l'utilisateur
         Task<AuthResponseDto> VerifySmsOtpAsync(string phoneNumber, string code);
 
-        // 4. Compte connecté (onglet Paramètres)
-        Task<AccountProfileDto> GetProfileAsync(int userId);
+        // 4. Compte connecté (onglet Profil). authMethod : méthode de connexion de la session (conservée dans le jeton).
+        Task<AccountProfileDto> GetProfileAsync(int userId, string? authMethod = null);
 
         /// <summary>Met à jour le nom / téléphone et renvoie un nouveau jeton (le nom figure dans les claims).</summary>
-        Task<AuthResponseDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto request);
+        Task<AuthResponseDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto request, string? authMethod = null);
 
         Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request);
     }

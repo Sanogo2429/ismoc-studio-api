@@ -124,7 +124,7 @@ namespace IsMocStudio.Business.Services
                 "Nouvelle connexion à votre compte IsMoc Studio",
                 NotificationBody(user.FirstName,
                     $"Une nouvelle connexion à votre compte IsMoc Studio a eu lieu le {ParisNow()}.",
-                    "Si c'est bien vous, aucune action n'est nécessaire. Sinon, modifiez votre mot de passe dans « Paramètres » et contactez l'équipe IsMoc.")
+                    "Si c'est bien vous, aucune action n'est nécessaire. Sinon, modifiez votre mot de passe dans « Profil » et contactez l'équipe IsMoc.")
             );
 
             return new AuthResponseDto
@@ -171,7 +171,7 @@ namespace IsMocStudio.Business.Services
                     "Réinitialisation de votre mot de passe - IsMoc Studio 🔑",
                     $"<p>Bonjour {firstName},</p><p>Une demande de réinitialisation de mot de passe a été effectuée sur votre compte IsMoc Studio.</p>"
                     + $"<p>Votre mot de passe temporaire est : <strong>{tempPassword}</strong></p>"
-                    + "<p>Connectez-vous avec ce mot de passe, puis modifiez-le dans « Paramètres ». Si vous n'êtes pas à l'origine de cette demande, contactez l'équipe IsMoc.</p>"
+                    + "<p>Connectez-vous avec ce mot de passe, puis modifiez-le dans « Profil ». Si vous n'êtes pas à l'origine de cette demande, contactez l'équipe IsMoc.</p>"
                 );
             }
             catch (Exception exception)
@@ -259,7 +259,8 @@ namespace IsMocStudio.Business.Services
                     Email = email,
                     FirstName = firstName ?? "Utilisateur",
                     LastName = lastName ?? "Google",
-                    PasswordHash = PasswordHelper.HashPassword(Guid.NewGuid().ToString()),
+                    // Pas de mot de passe IsMoc : l'utilisateur pourra en définir un via « Mot de passe oublié ».
+                    PasswordHash = PasswordHelper.ExternalAccountMarker,
                     // Rôle standard par défaut ; Admin uniquement via la liste AdminEmails (ApplyAdminPolicyAsync).
                     Role = AdminBootstrapper.ClientRole
                 };
@@ -287,7 +288,7 @@ namespace IsMocStudio.Business.Services
             }
 
             await ApplyAdminPolicyAsync(user);
-            var token = _tokenHelper.GenerateJwtToken(user);
+            var token = _tokenHelper.GenerateJwtToken(user, TokenHelper.GoogleAuthMethod);
 
             // Traçabilité : rôle attribué et sa raison (la redirection /admin ou /dashboard en découle).
             _logger.LogInformation(
@@ -411,10 +412,10 @@ namespace IsMocStudio.Business.Services
         }
 
         // ------------------------------------------------------------------
-        // Compte connecté (onglet Paramètres)
+        // Compte connecté (onglet Profil)
         // ------------------------------------------------------------------
 
-        public async Task<AccountProfileDto> GetProfileAsync(int userId)
+        public async Task<AccountProfileDto> GetProfileAsync(int userId, string? authMethod = null)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId)
                 ?? throw new KeyNotFoundException("Utilisateur introuvable.");
@@ -430,8 +431,9 @@ namespace IsMocStudio.Business.Services
                 PhoneNumber = user.PhoneNumber,
                 Role = user.Role,
                 CreatedAt = user.CreatedAt,
+                HasPassword = PasswordHelper.HasUsablePassword(user.PasswordHash),
                 // Jeton à jour : un compte promu Admin récupère son rôle sans se reconnecter.
-                Token = _tokenHelper.GenerateJwtToken(user)
+                Token = _tokenHelper.GenerateJwtToken(user, authMethod)
             };
         }
 
@@ -449,7 +451,7 @@ namespace IsMocStudio.Business.Services
             _logger.LogInformation("Rôle du compte {UserId} aligné sur la liste des administrateurs : {Role}.", user.Id, user.Role);
         }
 
-        public async Task<AuthResponseDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto request)
+        public async Task<AuthResponseDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto request, string? authMethod = null)
         {
             var firstName = request.FirstName?.Trim() ?? string.Empty;
             var lastName = request.LastName?.Trim() ?? string.Empty;
@@ -476,7 +478,7 @@ namespace IsMocStudio.Business.Services
 
             return new AuthResponseDto
             {
-                Token = _tokenHelper.GenerateJwtToken(user),
+                Token = _tokenHelper.GenerateJwtToken(user, authMethod),
                 Email = user.Email,
                 FullName = $"{user.FirstName} {user.LastName}",
                 Role = user.Role
