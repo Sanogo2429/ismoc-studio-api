@@ -65,6 +65,13 @@ namespace IsMocStudio.api.Controllers
         /// <summary>Consomme un crédit (et applique la limite par minute) ; retourne la réponse d'erreur métier si refusé.</summary>
         private async Task<IActionResult?> ConsumeAiCreditAsync(string userId, AiUsageKind kind)
         {
+            // Moteur IA non configuré : refus AVANT tout décompte (le détail reste dans les journaux du serveur).
+            if (!OpenAiMvpService.IsConfigured)
+            {
+                Logger.LogError("Aucune clé IA configurée (Anthropic:ApiKey / OpenAI:ApiKey) : demande IA refusée sans décompte de crédit.");
+                return AiUnavailable();
+            }
+
             var unlimited = await HasUnlimitedAiAsync(userId);
             var decision = await _aiQuotaService.TryConsumeAsync(userId, kind, unlimited, applyRateLimit: !IsAdmin(), HttpContext.RequestAborted);
             var status = _aiQuotaService.GetStatus(userId, unlimited);

@@ -608,6 +608,8 @@ namespace IsMocStudio.Business.Services
             Utility
         }
 
+        public bool IsConfigured => AnthropicApiKey is not null || OpenAiApiKey is not null;
+
         private string? AnthropicApiKey => string.IsNullOrWhiteSpace(_configuration["Anthropic:ApiKey"]) ? null : _configuration["Anthropic:ApiKey"];
         private string? OpenAiApiKey => string.IsNullOrWhiteSpace(_configuration["OpenAI:ApiKey"]) ? null : _configuration["OpenAI:ApiKey"];
 

@@ -18,5 +18,8 @@ namespace IsMocStudio.Core.Interfaces.Services
 
         /// <summary>Devis : retourne un JSON strict (montants en euros).</summary>
         Task<string> EstimateMvpAsync(ProjectMemoryDto memory);
+
+        /// <summary>Au moins un moteur IA est configuré (clé Anthropic ou OpenAI) : vérifié AVANT de décompter un crédit.</summary>
+        bool IsConfigured { get; }
     }
 }
