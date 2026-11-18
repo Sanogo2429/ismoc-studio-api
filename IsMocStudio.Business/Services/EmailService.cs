@@ -85,7 +85,7 @@ namespace IsMocStudio.Business.Services
     {
         /// <summary>Port SMTP bloqué ou serveur muet : échec en 20 s au lieu de 100 s (délai par défaut de SmtpClient).</summary>
         private const int SendTimeoutMilliseconds = 20_000;
-        private const string NotConfiguredMessage = "L'envoi d'e-mails n'est pas encore configuré sur le serveur. Contactez l'équipe IsMoc pour réinitialiser votre mot de passe.";
+        private const string NotConfiguredMessage = "L'envoi d'e-mails est momentanément indisponible. Contactez l'équipe IsMoc pour réinitialiser votre mot de passe.";
         private const string FailedMessage = "L'e-mail n'a pas pu être envoyé. Réessayez dans un instant ou contactez l'équipe IsMoc.";
 
         private readonly IConfiguration _configuration;
