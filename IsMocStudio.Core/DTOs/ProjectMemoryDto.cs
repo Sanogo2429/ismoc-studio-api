@@ -32,6 +32,9 @@ namespace IsMocStudio.Core.DTOs
         public const string File = "file";
         public const string Sticker = "sticker";
         public const string Voice = "voice";
+
+        /// <summary>Message système « appel manqué » : Content = « audio » ou « video », AuthorName = l'appelant.</summary>
+        public const string MissedCall = "missed_call";
     }
 
     /// <summary>
@@ -173,7 +176,7 @@ namespace IsMocStudio.Core.DTOs
         public string? AttachmentName { get; set; }
         public string? AttachmentContentType { get; set; }
 
-        /// <summary>"text", "image", "file", "sticker" ou "voice".</summary>
+        /// <summary>"text", "image", "file", "sticker", "voice" ou "missed_call" (message système).</summary>
         public string MessageType { get; set; } = ClientMessageTypes.Text;
 
         /// <summary>Durée d'un message vocal, en secondes.</summary>

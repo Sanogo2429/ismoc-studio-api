@@ -97,11 +97,21 @@ namespace IsMocStudio.Business.Helpers
             return message;
         }
 
+        /// <summary>Message système « appel manqué » (ajouté par le serveur, jamais envoyé par un client).</summary>
+        public static ClientMessageDto CreateMissedCall(string callerName, string callType) => new()
+        {
+            Author = "system",
+            AuthorName = Sanitize(callerName, 120),
+            MessageType = ClientMessageTypes.MissedCall,
+            Content = callType == "video" ? "video" : "audio",
+        };
+
         /// <summary>Aperçu court d'un message (listes de conversations, notifications).</summary>
         public static string Preview(ClientMessageDto message, int maxLength = 160) => message.MessageType switch
         {
             ClientMessageTypes.Sticker => $"Sticker · {message.AttachmentName ?? message.Content}",
             ClientMessageTypes.Voice => $"🎙️ Message vocal ({message.AudioDurationSeconds ?? 0} s)",
+            ClientMessageTypes.MissedCall => message.Content == "video" ? "📞 Appel vidéo manqué" : "📞 Appel audio manqué",
             ClientMessageTypes.Image when string.IsNullOrWhiteSpace(message.Content) => "📷 Photo",
             ClientMessageTypes.File when string.IsNullOrWhiteSpace(message.Content) => $"📎 {message.AttachmentName ?? "Fichier"}",
             _ => message.Content.Length > maxLength ? message.Content[..maxLength] + "…" : message.Content

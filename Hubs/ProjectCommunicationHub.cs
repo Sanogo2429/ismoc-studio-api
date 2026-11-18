@@ -2,6 +2,7 @@ using System.Security.Claims;
 using IsMocStudio.Business.Helpers;
 using IsMocStudio.Core.DTOs;
 using IsMocStudio.Core.Interfaces.Services;
+using IsMocStudio.api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
@@ -23,17 +24,26 @@ namespace IsMocStudio.api.Hubs
         private readonly IProjectMemoryService _memoryService;
         private readonly IProjectAttachmentService _attachmentService;
         private readonly ProjectPresenceTracker _presence;
+        private readonly IEmailService _emailService;
+        private readonly IAdminAccessRegistry _adminRegistry;
+        private readonly FrontendOrigins _frontendOrigins;
         private readonly ILogger<ProjectCommunicationHub> _logger;
 
         public ProjectCommunicationHub(
             IProjectMemoryService memoryService,
             IProjectAttachmentService attachmentService,
             ProjectPresenceTracker presence,
+            IEmailService emailService,
+            IAdminAccessRegistry adminRegistry,
+            FrontendOrigins frontendOrigins,
             ILogger<ProjectCommunicationHub> logger)
         {
             _memoryService = memoryService;
             _attachmentService = attachmentService;
             _presence = presence;
+            _emailService = emailService;
+            _adminRegistry = adminRegistry;
+            _frontendOrigins = frontendOrigins;
             _logger = logger;
         }
 
@@ -102,6 +112,13 @@ namespace IsMocStudio.api.Hubs
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
+            // Client déconnecté pendant la sonnerie d'un appel « équipe hors ligne » : l'appel manqué est enregistré.
+            foreach (var projectId in _presence.OfflineCallsBy(Context.ConnectionId))
+            {
+                try { await RecordMissedCallAsync(projectId); }
+                catch (Exception recordError) { _logger.LogWarning(recordError, "Appel manqué non enregistré pour {ProjectId}.", projectId); }
+            }
+
             var wasInLobby = _presence.IsInLobby(Context.ConnectionId);
             var leftProjects = _presence.LeaveAll(Context.ConnectionId);
             var toRefresh = wasInLobby ? _presence.ActiveProjects().Union(leftProjects) : leftProjects;
@@ -162,7 +179,8 @@ namespace IsMocStudio.api.Hubs
         // Appels audio / vidéo : signalisation WebRTC entre pairs
         // ------------------------------------------------------------------
 
-        public async Task InitiateCall(string projectId, string callType)
+        /// <summary>Lance un appel. Retourne vrai si un client appelle alors que l'équipe est hors ligne (sonnerie simulée 30 s).</summary>
+        public async Task<bool> InitiateCall(string projectId, string callType)
         {
             EnsureJoined(projectId);
             if (callType is not ("audio" or "video")) throw new HubException("Type d'appel invalide (audio ou video).");
@@ -170,13 +188,18 @@ namespace IsMocStudio.api.Hubs
             var memory = await GetAccessibleMemoryAsync(projectId);
             var isTeam = IsTeamMember(memory);
             var callerName = isTeam ? TeamName : DisplayName();
-            _presence.SetPendingCall(projectId, new PendingCall(Context.ConnectionId, callerName, callType, isTeam, DateTimeOffset.UtcNow));
+            // Client qui appelle alors que l'équipe est hors ligne : la sonnerie est simulée côté client (30 s), l'équipe
+            // est prévenue par e-mail, et l'appel manqué est ajouté au fil à la fin (ReportMissedCall / raccroché).
+            var teamOffline = !isTeam && !_presence.IsTeamOnline(projectId);
+            _presence.SetPendingCall(projectId, new PendingCall(Context.ConnectionId, callerName, callType, isTeam, DateTimeOffset.UtcNow, teamOffline));
 
-            _logger.LogInformation("Appel {CallType} lancé sur le projet {ProjectId}.", callType, projectId);
+            _logger.LogInformation("Appel {CallType} lancé sur le projet {ProjectId} (équipe {TeamState}).", callType, projectId, teamOffline ? "hors ligne" : "en ligne");
+            if (teamOffline) NotifyTeamOfMissedCall(projectId, memory.ProjectName, callerName, callType);
             await Clients.OthersInGroup(GroupName(projectId)).SendAsync("IncomingCall", callerName, callType);
 
             // Un client appelle : tout le cockpit agence est prévenu, même sans la conversation ouverte.
             if (!isTeam) await Clients.Group(AgencyGroup).SendAsync("AgencyIncomingCall", projectId, callerName, callType);
+            return teamOffline;
         }
 
         public async Task AcceptCall(string projectId)
@@ -190,9 +213,66 @@ namespace IsMocStudio.api.Hubs
         public async Task RejectOrEndCall(string projectId)
         {
             EnsureJoined(projectId);
+            // Le client raccroche avant la fin de la sonnerie d'un appel « équipe hors ligne » : appel manqué enregistré.
+            await RecordMissedCallAsync(projectId);
             _presence.ClearPendingCall(projectId);
             await Clients.OthersInGroup(GroupName(projectId)).SendAsync("CallEnded");
             await Clients.Group(AgencyGroup).SendAsync("AgencyCallEnded", projectId);
+        }
+
+        /// <summary>
+        /// Fin de la sonnerie (30 s) d'un appel lancé alors que l'équipe était hors ligne : le message système
+        /// « appel manqué » est ajouté au fil. Sans appel correspondant (lancé par cette connexion, équipe hors ligne),
+        /// rien n'est fait : un client ne peut pas fabriquer d'appel manqué.
+        /// </summary>
+        public async Task<ClientMessageDto?> ReportMissedCall(string projectId)
+        {
+            EnsureJoined(projectId);
+            return await RecordMissedCallAsync(projectId);
+        }
+
+        private async Task<ClientMessageDto?> RecordMissedCallAsync(string projectId)
+        {
+            var call = _presence.TakeOfflineCall(projectId, Context.ConnectionId);
+            if (call is null) return null;
+
+            var message = ProjectMessaging.CreateMissedCall(call.CallerName, call.CallType);
+            await AppendMessageAsync(_memoryService, projectId, message, CancellationToken.None);
+            await Clients.Group(GroupName(projectId)).SendAsync("ReceiveProjectMessage", message);
+            await NotifyAgencyMessageAsync(Clients, projectId, message);
+            await Clients.Group(AgencyGroup).SendAsync("AgencyCallEnded", projectId);
+            _logger.LogInformation("Appel {CallType} manqué enregistré sur le projet {ProjectId}.", call.CallType, projectId);
+            return message;
+        }
+
+        /// <summary>
+        /// Prévient Ismael et Moctar par e-mail (adresses AdminEmails) d'un appel client pendant leur absence.
+        /// En arrière-plan (la sonnerie n'attend pas l'envoi) ; au plus un e-mail toutes les 5 minutes par projet.
+        /// </summary>
+        private void NotifyTeamOfMissedCall(string projectId, string projectName, string callerName, string callType)
+        {
+            if (!_presence.TryReserveMissedCallEmail(projectId)) return;
+            var recipients = _adminRegistry.Emails.ToList();
+            if (recipients.Count == 0) return;
+
+            var emailService = _emailService;
+            var logger = _logger;
+            var kind = callType == "video" ? "vidéo" : "audio";
+            var link = $"{_frontendOrigins.DefaultFrontend}/admin?tab=messages&project={projectId}";
+            var subject = $"Appel manqué de {callerName}";
+            var body = $"<p>{System.Net.WebUtility.HtmlEncode(callerName)} a tenté de vous joindre en appel {kind}"
+                + $" sur « {System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(projectName) ? "Discussion générale" : projectName)} » !</p>"
+                + "<p>L'équipe était hors ligne : un message « appel manqué » a été ajouté à la conversation.</p>"
+                + $"<p><a href=\"{link}\">Ouvrir la conversation et rappeler</a></p>";
+
+            _ = Task.Run(async () =>
+            {
+                foreach (var recipient in recipients)
+                {
+                    try { await emailService.SendEmailAsync(recipient, subject, body); }
+                    catch (Exception error) { logger.LogWarning(error, "E-mail « appel manqué » non envoyé pour {ProjectId}.", projectId); }
+                }
+            });
         }
 
         public Task SendWebRtcOffer(string projectId, string sdp)
