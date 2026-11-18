@@ -52,7 +52,7 @@ namespace IsMocStudio.Business.Services
             // l'e-mail, n'importe qui pourrait s'inscrire avec une adresse de la liste et devenir administrateur.
             if (_adminRegistry.IsAdminEmail(email))
             {
-                _logger.LogWarning("Inscription refusée : adresse réservée à l'équipe IsMoc.");
+                _logger.LogWarning("Inscription refusée : adresse réservée à l'équipe IsMoc.");
                 throw new ArgumentException("Cette adresse e-mail est réservée. Connectez-vous ou contactez l'équipe IsMoc.");
             }
 
@@ -81,7 +81,7 @@ namespace IsMocStudio.Business.Services
             // E-mail de bienvenue : informatif, il ne doit jamais faire échouer une inscription déjà enregistrée.
             await TrySendNotificationAsync(
                 email,
-                "Bienvenue sur IsMoc Studio ! 🎉",
+                "Bienvenue sur IsMoc Studio ! 🎉",
                 NotificationBody(firstName,
                     "Votre compte IsMoc Studio a bien été créé.",
                     "Vous pouvez dès maintenant vous connecter pour concevoir votre site ou votre application avec IsMoc AI, puis suivre son développement avec notre équipe.")
@@ -138,7 +138,7 @@ namespace IsMocStudio.Business.Services
 
         /// <summary>Message d'échec d'envoi : le mot de passe actuel n'a PAS été modifié.</summary>
         public const string ResetEmailFailedMessage =
-            "L'e-mail de réinitialisation n'a pas pu être envoyé pour le moment. Votre mot de passe actuel n'a pas été modifié : réessayez dans quelques minutes.";
+            "L'e-mail de réinitialisation n'a pas pu être envoyé pour le moment. Votre mot de passe actuel n'a pas été modifié : réessayez dans quelques minutes.";
 
         /// <summary>
         /// Mot de passe oublié, parcours sécurisé :
@@ -170,13 +170,13 @@ namespace IsMocStudio.Business.Services
                     user.Email,
                     "Réinitialisation de votre mot de passe - IsMoc Studio 🔑",
                     $"<p>Bonjour {firstName},</p><p>Une demande de réinitialisation de mot de passe a été effectuée sur votre compte IsMoc Studio.</p>"
-                    + $"<p>Votre mot de passe temporaire est : <strong>{tempPassword}</strong></p>"
+                    + $"<p>Votre mot de passe temporaire est : <strong>{tempPassword}</strong></p>"
                     + "<p>Connectez-vous avec ce mot de passe, puis modifiez-le dans « Profil ». Si vous n'êtes pas à l'origine de cette demande, contactez l'équipe IsMoc.</p>"
                 );
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Échec de l'envoi de l'e-mail de réinitialisation : mot de passe NON modifié (utilisateur {UserId}).", user.Id);
+                _logger.LogError(exception, "Échec de l'envoi de l'e-mail de réinitialisation : mot de passe NON modifié (utilisateur {UserId}).", user.Id);
                 throw new InvalidOperationException(ResetEmailFailedMessage, exception);
             }
 
@@ -219,11 +219,11 @@ namespace IsMocStudio.Business.Services
                 catch (EmailDeliveryException exception)
                 {
                     // Déjà journalisé en détail par EmailService (code SMTP, réponse du serveur, expéditeur…).
-                    logger.LogWarning("Notification « {Subject} » abandonnée : {Diagnostic}", subject, exception.Diagnostic);
+                    logger.LogWarning("Notification « {Subject} » abandonnée : {Diagnostic}", subject, exception.Diagnostic);
                 }
                 catch (Exception exception)
                 {
-                    logger.LogError(exception, "Notification « {Subject} » abandonnée : erreur inattendue.", subject);
+                    logger.LogError(exception, "Notification « {Subject} » abandonnée : erreur inattendue.", subject);
                 }
             });
             return Task.CompletedTask;
@@ -270,7 +270,7 @@ namespace IsMocStudio.Business.Services
 
                 await TrySendNotificationAsync(
                     email,
-                    "Bienvenue sur IsMoc Studio ! 🎉",
+                    "Bienvenue sur IsMoc Studio ! 🎉",
                     NotificationBody(user.FirstName,
                         "Votre compte IsMoc Studio a bien été créé avec votre compte Google.",
                         "Vous pouvez dès maintenant concevoir votre site ou votre application avec IsMoc AI, puis suivre son développement avec notre équipe.")
@@ -292,7 +292,7 @@ namespace IsMocStudio.Business.Services
 
             // Traçabilité : rôle attribué et sa raison (la redirection /admin ou /dashboard en découle).
             _logger.LogInformation(
-                "Connexion Google : compte {UserId} ({AccountState}), rôle {Role} ({Reason}).",
+                "Connexion Google : compte {UserId} ({AccountState}), rôle {Role} ({Reason}).",
                 user.Id,
                 isNewAccount ? "créé" : "existant",
                 user.Role,
@@ -351,7 +351,7 @@ namespace IsMocStudio.Business.Services
             _cache.Set(OtpCacheKey(phoneNumber), otpCode, TimeSpan.FromMinutes(5));
             _cache.Remove(OtpAttemptsKey(phoneNumber));
 
-            await _smsService.SendSmsAsync(phoneNumber, $"Votre code de vérification IsMoc Studio est : {otpCode}. Il est valide 5 minutes.");
+            await _smsService.SendSmsAsync(phoneNumber, $"Votre code de vérification IsMoc Studio est : {otpCode}. Il est valide 5 minutes.");
         }
 
         public async Task<AuthResponseDto> VerifySmsOtpAsync(string phoneNumber, string code)
@@ -371,7 +371,7 @@ namespace IsMocStudio.Business.Services
                 {
                     _cache.Remove(OtpCacheKey(phoneNumber));
                     _cache.Remove(OtpAttemptsKey(phoneNumber));
-                    throw new Exception("Trop d'essais : demandez un nouveau code.");
+                    throw new Exception("Trop d'essais : demandez un nouveau code.");
                 }
 
                 _cache.Set(OtpAttemptsKey(phoneNumber), attempts, TimeSpan.FromMinutes(5));
@@ -448,7 +448,7 @@ namespace IsMocStudio.Business.Services
 
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CompleteAsync();
-            _logger.LogInformation("Rôle du compte {UserId} aligné sur la liste des administrateurs : {Role}.", user.Id, user.Role);
+            _logger.LogInformation("Rôle du compte {UserId} aligné sur la liste des administrateurs : {Role}.", user.Id, user.Role);
         }
 
         public async Task<AuthResponseDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto request, string? authMethod = null)

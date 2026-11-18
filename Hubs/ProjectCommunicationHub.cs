@@ -244,7 +244,7 @@ namespace IsMocStudio.api.Hubs
             if (!string.Equals(memory.OwnerId, userId, StringComparison.Ordinal) && Context.User?.IsInRole("Admin") != true)
             {
                 _logger.LogWarning("Accès refusé au fil {ProjectId} pour l'utilisateur {UserId}.", projectId, userId);
-                throw new HubException("Accès refusé : ce fil de discussion ne vous appartient pas.");
+                throw new HubException("Accès refusé : ce fil de discussion ne vous appartient pas.");
             }
 
             return memory;

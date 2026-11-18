@@ -35,8 +35,8 @@ namespace IsMocStudio.Business.Services
 
                 // Prompt construit par concaténation simple pour éviter tout bug de compilation C#
                 var prompt = "Tu es un Designer UI/UX expert et un Architecte Front-end. " +
-                             "Un client souhaite créer une application de type '" + projectType + "' avec la description suivante : \"" + description + "\". " +
-                             "Analyse ce besoin et retourne EXCLUSIVEMENT un objet JSON valide (sans markdown, sans blocs de code) avec la structure exacte suivante : " +
+                             "Un client souhaite créer une application de type '" + projectType + "' avec la description suivante : \"" + description + "\". " +
+                             "Analyse ce besoin et retourne EXCLUSIVEMENT un objet JSON valide (sans markdown, sans blocs de code) avec la structure exacte suivante : " +
                              "{\"AppName\": \"Nom de l'app\", \"Theme\": \"Light\", \"PrimaryColor\": \"#10B981\", \"SecondaryColor\": \"#3B82F6\", " +
                              "\"Screens\": [{\"ScreenName\": \"Accueil\", \"LayoutType\": \"Grid\", \"Components\": [\"Barre de recherche\", \"Liste\"]}], " +
                              "\"CoreFeatures\": [\"Fonctionnalité 1\"], \"AiGeneratedSummary\": \"Résumé en français.\"}";
@@ -92,7 +92,7 @@ namespace IsMocStudio.Business.Services
                     new { ScreenName = "Contact", LayoutType = "Form", Components = new[] { "Coordonnées", "Formulaire de contact" } }
                 },
                 CoreFeatures = new[] { "Navigation responsive", "Présentation des offres ou contenus", "Formulaire de contact" },
-                AiGeneratedSummary = "Structure de départ pour " + projectType + " basée sur : '" + description + "'"
+                AiGeneratedSummary = "Structure de départ pour " + projectType + " basée sur : '" + description + "'"
             };
 
             return JsonSerializer.Serialize(briefObject, new JsonSerializerOptions { WriteIndented = true });

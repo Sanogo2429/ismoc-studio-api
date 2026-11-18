@@ -20,7 +20,7 @@ namespace IsMocStudio.Business.Helpers
             ["validated"] = "Validé ✅",
             ["great-idea"] = "Super idée 💡",
             ["in-dev"] = "En cours de dev 🚀",
-            ["call-me"] = "On s'appelle ? 📞",
+            ["call-me"] = "On s'appelle ? 📞",
             ["thanks"] = "Merci 🙏",
             ["top-design"] = "Top design 🎨",
             ["urgent"] = "Urgent ⚡",

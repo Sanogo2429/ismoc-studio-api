@@ -68,7 +68,7 @@ namespace IsMocStudio.api.Controllers
             // Moteur IA non configuré : refus AVANT tout décompte (le détail reste dans les journaux du serveur).
             if (!OpenAiMvpService.IsConfigured)
             {
-                Logger.LogError("Aucune clé IA configurée (Anthropic:ApiKey / OpenAI:ApiKey) : demande IA refusée sans décompte de crédit.");
+                Logger.LogError("Aucune clé IA configurée (Anthropic:ApiKey / OpenAI:ApiKey) : demande IA refusée sans décompte de crédit.");
                 return AiUnavailable();
             }
 
@@ -198,17 +198,17 @@ namespace IsMocStudio.api.Controllers
                 var formatLabel = brief.Format == "mobile" ? "Application mobile" : "Site / application web";
                 var initialIdea = new StringBuilder()
                     .Append($"{formatLabel} pour le secteur « {brief.Sector} ».")
-                    .Append($" Pages / modules : {string.Join(", ", brief.Modules)}.")
-                    .Append($" Palette : {brief.PrimaryColor} (principale) et {brief.SecondaryColor} (secondaire).");
-                if (!string.IsNullOrWhiteSpace(brief.Description)) initialIdea.Append($" Description : {brief.Description}");
+                    .Append($" Pages / modules : {string.Join(", ", brief.Modules)}.")
+                    .Append($" Palette : {brief.PrimaryColor} (principale) et {brief.SecondaryColor} (secondaire).");
+                if (!string.IsNullOrWhiteSpace(brief.Description)) initialIdea.Append($" Description : {brief.Description}");
 
                 List<string> preferences =
                 [
-                    $"Format : {formatLabel}",
-                    $"Secteur d'activité : {brief.Sector}",
-                    $"Couleur principale : {brief.PrimaryColor}",
-                    $"Couleur secondaire : {brief.SecondaryColor}",
-                    $"Pages / modules à conserver : {string.Join(", ", brief.Modules)}"
+                    $"Format : {formatLabel}",
+                    $"Secteur d'activité : {brief.Sector}",
+                    $"Couleur principale : {brief.PrimaryColor}",
+                    $"Couleur secondaire : {brief.SecondaryColor}",
+                    $"Pages / modules à conserver : {string.Join(", ", brief.Modules)}"
                 ];
 
                 var image = Business.Services.OpenAiMvpService.DecodeReferenceImage(request.ImageBase64);
@@ -415,7 +415,7 @@ namespace IsMocStudio.api.Controllers
                 var createdProject = await _projectService.CreateProjectAsync(userId, request);
                 return Ok(new
                 {
-                    Message = "Projet créé avec succès ! 🎉",
+                    Message = "Projet créé avec succès ! 🎉",
                     Project = createdProject
                 });
             }
@@ -454,7 +454,7 @@ namespace IsMocStudio.api.Controllers
                 var project = await _projectService.GetProjectByIdAsync(userId, id);
                 return Ok(new
                 {
-                    Message = "Brief JSON récupéré avec succès ! 🧠",
+                    Message = "Brief JSON récupéré avec succès ! 🧠",
                     ProjectId = project.Id,
                     ProjectName = project.Name,
                     JsonConfiguration = JsonDocument.Parse(project.JsonConfiguration).RootElement

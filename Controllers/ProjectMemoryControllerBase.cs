@@ -71,7 +71,7 @@ namespace IsMocStudio.api.Controllers
             if (!isOwner && !(allowAdmin && IsAdmin()))
             {
                 Logger.LogWarning("Accès refusé au projet {ProjectId} pour l'utilisateur {UserId}.", projectId, userId);
-                return (null, StatusCode(StatusCodes.Status403Forbidden, new { Message = "Accès refusé : ce projet ne vous appartient pas.", Code = "FORBIDDEN" }));
+                return (null, StatusCode(StatusCodes.Status403Forbidden, new { Message = "Accès refusé : ce projet ne vous appartient pas.", Code = "FORBIDDEN" }));
             }
 
             return (memory, null);
@@ -80,7 +80,7 @@ namespace IsMocStudio.api.Controllers
         protected static bool IsGeneralThread(ProjectMemoryDto memory) => memory.ThreadType == ProjectThreadTypes.General;
 
         protected IActionResult GeneralThreadNotSupported() =>
-            BadRequest(new { Message = "La discussion générale ne contient pas de maquette : créez un projet pour utiliser cette fonction.", Code = "GENERAL_THREAD" });
+            BadRequest(new { Message = "La discussion générale ne contient pas de maquette : créez un projet pour utiliser cette fonction.", Code = "GENERAL_THREAD" });
 
         protected static JsonResult Utf8Json(object value) => new(value)
         {
@@ -116,19 +116,19 @@ namespace IsMocStudio.api.Controllers
         {
             var builder = new StringBuilder();
             builder.AppendLine("📋 Devis indicatif (en euros)");
-            builder.AppendLine($"Complexité : {quote.ComplexityLevel}");
-            builder.AppendLine($"Délai estimé : {quote.EstimatedDays} jours ouvrés (fourchette {quote.MinDays}–{quote.MaxDays} j)");
+            builder.AppendLine($"Complexité : {quote.ComplexityLevel}");
+            builder.AppendLine($"Délai estimé : {quote.EstimatedDays} jours ouvrés (fourchette {quote.MinDays}–{quote.MaxDays} j)");
             builder.AppendLine();
-            builder.AppendLine("Découpage :");
+            builder.AppendLine("Découpage :");
             foreach (var row in quote.Breakdown)
             {
                 builder.AppendLine($"• {row.Workstream} : {row.MinDays}–{row.MaxDays} j · {Euros(row.MinPriceEur)} – {Euros(row.MaxPriceEur)}");
             }
             builder.AppendLine();
-            builder.AppendLine($"Développement sur mesure : {Euros(quote.DevelopmentPriceEur)}");
-            builder.AppendLine($"Identité visuelle complète : {Euros(quote.DesignIdentityPriceEur)}");
-            builder.AppendLine($"Maintenance : {Euros(quote.MonthlyMaintenanceEur)} / mois");
-            builder.AppendLine($"Budget total : {Euros(quote.TotalMinEur)} – {Euros(quote.TotalMaxEur)} HT");
+            builder.AppendLine($"Développement sur mesure : {Euros(quote.DevelopmentPriceEur)}");
+            builder.AppendLine($"Identité visuelle complète : {Euros(quote.DesignIdentityPriceEur)}");
+            builder.AppendLine($"Maintenance : {Euros(quote.MonthlyMaintenanceEur)} / mois");
+            builder.AppendLine($"Budget total : {Euros(quote.TotalMinEur)} – {Euros(quote.TotalMaxEur)} HT");
             builder.Append(quote.Summary);
             return builder.ToString().Trim();
         }
@@ -188,7 +188,7 @@ namespace IsMocStudio.api.Controllers
             {
                 // Rien n'est sauvegardé tant que le HTML n'est pas valide : la maquette existante reste intacte.
                 Logger.LogError(exception, "Le moteur IA a renvoyé un contenu invalide pendant {Operation}.", operation);
-                return AiUnavailable("AI_INVALID_OUTPUT", StatusCodes.Status502BadGateway, "IsMoc AI n'a pas produit de maquette exploitable. Votre maquette actuelle est conservée : réessayez ou écrivez à l'équipe depuis Messages.");
+                return AiUnavailable("AI_INVALID_OUTPUT", StatusCodes.Status502BadGateway, "IsMoc AI n'a pas produit de maquette exploitable. Votre maquette actuelle est conservée : réessayez ou écrivez à l'équipe depuis Messages.");
             }
             catch (Business.Services.AiProviderException exception)
             {

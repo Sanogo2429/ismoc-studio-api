@@ -42,7 +42,7 @@ namespace IsMocStudio.Business.Helpers
             var key = Encoding.UTF8.GetBytes(secret);
             if (key.Length < MinimumKeyBytes)
             {
-                throw new InvalidOperationException($"JwtSettings:Secret est trop court : {MinimumKeyBytes} octets minimum.");
+                throw new InvalidOperationException($"JwtSettings:Secret est trop court : {MinimumKeyBytes} octets minimum.");
             }
 
             return key;

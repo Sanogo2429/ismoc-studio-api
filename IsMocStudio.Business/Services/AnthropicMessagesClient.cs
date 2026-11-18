@@ -179,12 +179,12 @@ namespace IsMocStudio.Business.Services
             }
             catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogError(exception, "Anthropic {Model} : aucune réponse avant le délai de {Timeout}.", model, _httpClient.Timeout);
+                _logger.LogError(exception, "Anthropic {Model} : aucune réponse avant le délai de {Timeout}.", model, _httpClient.Timeout);
                 throw new AiProviderException("Anthropic", 408, "timeout", "Anthropic n'a pas répondu dans le délai autorisé.", exception);
             }
             catch (HttpRequestException exception)
             {
-                _logger.LogError(exception, "Anthropic {Model} : API injoignable.", model);
+                _logger.LogError(exception, "Anthropic {Model} : API injoignable.", model);
                 throw new AiProviderException("Anthropic", 0, "network", "Impossible de joindre l'API Anthropic.", exception);
             }
 
@@ -195,7 +195,7 @@ namespace IsMocStudio.Business.Services
                     var raw = await response.Content.ReadAsStringAsync(cancellationToken);
                     // Code HTTP exact + corps complet d'erreur (ne contient jamais la clé API) pour le diagnostic.
                     _logger.LogError(
-                        "Anthropic {Model} a répondu HTTP {StatusCode} ({Reason}). request-id={RequestId}. Corps de l'erreur : {ErrorBody}",
+                        "Anthropic {Model} a répondu HTTP {StatusCode} ({Reason}). request-id={RequestId}. Corps de l'erreur : {ErrorBody}",
                         model,
                         (int)response.StatusCode,
                         response.ReasonPhrase,
@@ -210,12 +210,12 @@ namespace IsMocStudio.Business.Services
                 }
                 catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogError(exception, "Anthropic {Model} : flux interrompu après {Timeout}.", model, StreamTimeout);
+                    _logger.LogError(exception, "Anthropic {Model} : flux interrompu après {Timeout}.", model, StreamTimeout);
                     throw new AiProviderException("Anthropic", 408, "timeout", $"La génération a dépassé {StreamTimeout.TotalMinutes:0} minutes.", exception);
                 }
                 catch (IOException exception)
                 {
-                    _logger.LogError(exception, "Anthropic {Model} : connexion coupée pendant le streaming.", model);
+                    _logger.LogError(exception, "Anthropic {Model} : connexion coupée pendant le streaming.", model);
                     throw new AiProviderException("Anthropic", 0, "network", "La connexion avec Anthropic a été coupée pendant la génération.", exception);
                 }
             }
@@ -284,7 +284,7 @@ namespace IsMocStudio.Business.Services
                             var hasError = root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object;
                             var errorType = hasError && error.TryGetProperty("type", out var et) ? et.GetString() : null;
                             var errorMessage = hasError && error.TryGetProperty("message", out var em) ? em.GetString() : null;
-                            _logger.LogError("Anthropic {Model} : erreur dans le flux ({Type}) après {Length} caractères : {Message}", model, errorType, text.Length, errorMessage);
+                            _logger.LogError("Anthropic {Model} : erreur dans le flux ({Type}) après {Length} caractères : {Message}", model, errorType, text.Length, errorMessage);
                             throw new AiProviderException("Anthropic", errorType == "overloaded_error" ? 529 : 500, errorType, errorMessage ?? "Erreur Anthropic pendant le streaming.");
                     }
                 }
@@ -292,7 +292,7 @@ namespace IsMocStudio.Business.Services
                 if (completed) break;
             }
 
-            _logger.LogInformation("Anthropic {Model} : flux terminé, stop_reason={StopReason}, {OutputTokens}/{MaxTokens} tokens de sortie, {Length} caractères.",
+            _logger.LogInformation("Anthropic {Model} : flux terminé, stop_reason={StopReason}, {OutputTokens}/{MaxTokens} tokens de sortie, {Length} caractères.",
                 model, stopReason, outputTokens, maxTokens, text.Length);
 
             // Toujours vérifier stop_reason avant d'utiliser le contenu.
@@ -304,19 +304,19 @@ namespace IsMocStudio.Business.Services
 
             if (stopReason == "max_tokens")
             {
-                _logger.LogWarning("Anthropic {Model} : réponse tronquée à {MaxTokens} tokens ({Length} caractères reçus).", model, maxTokens, text.Length);
+                _logger.LogWarning("Anthropic {Model} : réponse tronquée à {MaxTokens} tokens ({Length} caractères reçus).", model, maxTokens, text.Length);
                 throw new AiTruncatedResponseException("Anthropic", text.ToString());
             }
 
             if (!completed && stopReason is null)
             {
-                _logger.LogError("Anthropic {Model} : flux terminé sans message_stop ({Length} caractères reçus).", model, text.Length);
+                _logger.LogError("Anthropic {Model} : flux terminé sans message_stop ({Length} caractères reçus).", model, text.Length);
                 throw new AiTruncatedResponseException("Anthropic", text.ToString());
             }
 
             if (text.Length == 0)
             {
-                _logger.LogError("Anthropic {Model} : réponse sans texte. stop_reason={StopReason}.", model, stopReason);
+                _logger.LogError("Anthropic {Model} : réponse sans texte. stop_reason={StopReason}.", model, stopReason);
                 throw new AiProviderException("Anthropic", 204, "empty", "Claude a retourné une réponse vide.");
             }
 

@@ -60,7 +60,7 @@ namespace IsMocStudio.Business.Services
                     {
                         Author = "team",
                         AuthorName = "Équipe IsMoc",
-                        Content = "Bonjour et bienvenue chez IsMoc Studio ! Posez-nous toutes vos questions avant de lancer votre projet : nous répondons ici, et vous pouvez aussi nous appeler en audio ou en vidéo."
+                        Content = "Bonjour et bienvenue chez IsMoc Studio ! Posez-nous toutes vos questions avant de lancer votre projet : nous répondons ici, et vous pouvez aussi nous appeler en audio ou en vidéo."
                     }
                 ]
             };

@@ -62,7 +62,7 @@ namespace IsMocStudio.api.Controllers
                 var memory = await GetAccessibleMemoryAsync(projectId);
                 if (memory is null) return NotFound(new { Message = "Projet introuvable." });
                 if (IsGeneralThread(memory)) return GeneralThreadNotSupported();
-                if (string.IsNullOrWhiteSpace(memory.CurrentHtml)) return Conflict(new { Message = "La maquette est vide : impossible de commander ce projet." });
+                if (string.IsNullOrWhiteSpace(memory.CurrentHtml)) return Conflict(new { Message = "La maquette est vide : impossible de commander ce projet." });
 
                 if (IsPaid(memory)) return Utf8Json(CheckoutResponse(memory, memory.Order?.MaintenancePlan ?? plan));
 
@@ -150,7 +150,7 @@ namespace IsMocStudio.api.Controllers
             {
                 Author = "team",
                 AuthorName = TeamName,
-                Content = $"Bonjour {firstName}, merci pour votre confiance ! Votre paiement de {Euros(order.Installments[0].AmountEur)} a bien été enregistré et votre projet « {DisplayName(memory)} » est entre les mains de nos développeurs. Livraison estimée sous {memory.Quote.EstimatedDays} jours ouvrés. Écrivez-nous ici à tout moment.",
+                Content = $"Bonjour {firstName}, merci pour votre confiance ! Votre paiement de {Euros(order.Installments[0].AmountEur)} a bien été enregistré et votre projet « {DisplayName(memory)} » est entre les mains de nos développeurs. Livraison estimée sous {memory.Quote.EstimatedDays} jours ouvrés. Écrivez-nous ici à tout moment.",
                 SentAt = now.AddSeconds(2)
             });
 
@@ -176,7 +176,7 @@ namespace IsMocStudio.api.Controllers
 
             if (!_deliverableService.Exists(projectId))
             {
-                return NotFound(new { Message = "Aucun dossier de conception : le projet n'a pas encore été commandé." });
+                return NotFound(new { Message = "Aucun dossier de conception : le projet n'a pas encore été commandé." });
             }
 
             if (download)
@@ -295,7 +295,7 @@ namespace IsMocStudio.api.Controllers
             }
             catch (Business.Services.InvalidAudioSignatureException exception)
             {
-                Logger.LogWarning("Note vocale refusée sur {ProjectId} : type déclaré {DeclaredType}, {Length} octets, en-tête {HeaderHex}.",
+                Logger.LogWarning("Note vocale refusée sur {ProjectId} : type déclaré {DeclaredType}, {Length} octets, en-tête {HeaderHex}.",
                     projectId, exception.DeclaredType, exception.Length, exception.HeaderHex);
                 return BadRequest(new { Message = exception.Message });
             }
@@ -322,7 +322,7 @@ namespace IsMocStudio.api.Controllers
             if (request.Step is int step)
             {
                 newStatus = ProjectProgress.StatusForStep(step);
-                if (newStatus is null) return BadRequest(new { Message = "Les étapes 1 (brief) et 2 (paiement) sont validées par le client : choisissez 3, 4 ou 5." });
+                if (newStatus is null) return BadRequest(new { Message = "Les étapes 1 (brief) et 2 (paiement) sont validées par le client : choisissez 3, 4 ou 5." });
             }
 
             var memory = await GetAccessibleMemoryAsync(projectId, allowAdmin: true);
@@ -330,7 +330,7 @@ namespace IsMocStudio.api.Controllers
             if (IsGeneralThread(memory)) return GeneralThreadNotSupported();
             if (newStatus is not null && !ProjectProgress.IsPaid(memory.Status))
             {
-                return Conflict(new { Message = "Ce projet n'est pas encore payé : son étape ne peut pas avancer." });
+                return Conflict(new { Message = "Ce projet n'est pas encore payé : son étape ne peut pas avancer." });
             }
 
             var milestone = new ProjectMilestoneDto
@@ -343,7 +343,7 @@ namespace IsMocStudio.api.Controllers
             {
                 Author = "team",
                 AuthorName = TeamName,
-                Content = string.IsNullOrWhiteSpace(description) ? $"📍 Nouvelle avancée : {milestone.Title}" : $"📍 Nouvelle avancée : {milestone.Title}\n{description}"
+                Content = string.IsNullOrWhiteSpace(description) ? $"📍 Nouvelle avancée : {milestone.Title}" : $"📍 Nouvelle avancée : {milestone.Title}\n{description}"
             };
 
             var updated = await ProjectMemoryService.UpdateAsync(projectId, current =>

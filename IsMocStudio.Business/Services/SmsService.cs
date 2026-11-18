@@ -18,8 +18,8 @@ namespace IsMocStudio.Business.Services
         {
             // Simulation de l'envoi du SMS dans la console de développement
             _logger.LogInformation("📱 ======== ENVOI DE SMS (SIMULATION) ========");
-            _logger.LogInformation($"Numéro : {phoneNumber}");
-            _logger.LogInformation($"Message : {message}");
+            _logger.LogInformation($"Numéro : {phoneNumber}");
+            _logger.LogInformation($"Message : {message}");
             _logger.LogInformation("===============================================");
 
             return Task.CompletedTask;

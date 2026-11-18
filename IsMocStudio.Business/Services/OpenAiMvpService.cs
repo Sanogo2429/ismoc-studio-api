@@ -413,7 +413,7 @@ namespace IsMocStudio.Business.Services
                 if (recovered is null) throw; // contenu inexploitable : erreur 413 exacte renvoyée
                 var reply = ExtractPartialJsonString(truncated.PartialText, "reply", requireClosed: true)
                     ?? "La maquette a été mise à jour.";
-                _logger.LogWarning("Retouche tronquée par {Provider} : maquette récupérée automatiquement ({Length} caractères).", truncated.Provider, recovered.Length);
+                _logger.LogWarning("Retouche tronquée par {Provider} : maquette récupérée automatiquement ({Length} caractères).", truncated.Provider, recovered.Length);
                 return JsonSerializer.Serialize(new { reply, html = NormalizeHtml(recovered), extractedPreference = (string?)null }, PromptSerializerOptions);
             }
 
@@ -507,7 +507,7 @@ namespace IsMocStudio.Business.Services
             var issues = AssessQuality(html);
             if (issues.Count > 0)
             {
-                _logger.LogInformation("Maquette acceptée avec {Count} écart(s) au standard de design : {Issues}", issues.Count, string.Join(" | ", issues));
+                _logger.LogInformation("Maquette acceptée avec {Count} écart(s) au standard de design : {Issues}", issues.Count, string.Join(" | ", issues));
             }
 
             return html;
@@ -527,7 +527,7 @@ namespace IsMocStudio.Business.Services
                 // Coupure à max_tokens : maquette exploitable récupérée et refermée plutôt qu'une erreur 413.
                 var recovered = TryRecoverTruncatedHtml(truncated.PartialText);
                 if (recovered is null) throw; // contenu inexploitable : erreur 413 exacte renvoyée
-                _logger.LogWarning("Maquette tronquée par {Provider} : récupérée automatiquement ({Length} caractères, balises refermées).", truncated.Provider, recovered.Length);
+                _logger.LogWarning("Maquette tronquée par {Provider} : récupérée automatiquement ({Length} caractères, balises refermées).", truncated.Provider, recovered.Length);
                 return NormalizeHtml(recovered);
             }
 
@@ -557,12 +557,12 @@ namespace IsMocStudio.Business.Services
 
             if (html.Length < (isMobile ? 9_000 : 15_000))
             {
-                issues.Add($"Document trop court ({lineCount} lignes, {html.Length} caractères) : vise 350 à 700 lignes indentées couvrant toutes les sections obligatoires.");
+                issues.Add($"Document trop court ({lineCount} lignes, {html.Length} caractères) : vise 350 à 700 lignes indentées couvrant toutes les sections obligatoires.");
             }
 
             if (!html.Contains("addEventListener", StringComparison.Ordinal) && !Regex.IsMatch(html, @"\bonclick\s*=", RegexOptions.IgnoreCase))
             {
-                issues.Add("Aucune interactivité JavaScript : ajoute un script complet avant </body> (vues, filtres, modales, parcours de paiement, toasts).");
+                issues.Add("Aucune interactivité JavaScript : ajoute un script complet avant </body> (vues, filtres, modales, parcours de paiement, toasts).");
             }
 
             if (!isMobile)
@@ -571,7 +571,7 @@ namespace IsMocStudio.Business.Services
                 if (!html.Contains("<footer", StringComparison.OrdinalIgnoreCase)) issues.Add("Footer multi-colonnes (bg-slate-950 text-slate-300) absent.");
                 if (Regex.Matches(html, @"<section\b", RegexOptions.IgnoreCase).Count < 5)
                 {
-                    issues.Add("Moins de 5 sections : il faut Hero 2 colonnes, grille d'offres, parcours secondaire avec paiement, « Comment ça marche », confiance & avis.");
+                    issues.Add("Moins de 5 sections : il faut Hero 2 colonnes, grille d'offres, parcours secondaire avec paiement, « Comment ça marche », confiance & avis.");
                 }
             }
             else if (Regex.Matches(html, @"data-(?:tab|screen|view)\b", RegexOptions.IgnoreCase).Count < 3 && Regex.Matches(html, @"id=""(?:screen|view|tab)-", RegexOptions.IgnoreCase).Count < 3)
@@ -579,11 +579,11 @@ namespace IsMocStudio.Business.Services
                 issues.Add("La barre d'onglets doit naviguer entre 3 à 4 écrans complets (ex. id=\"screen-accueil\" ou data-screen).");
             }
 
-            if (html.Contains("#65a30d", StringComparison.OrdinalIgnoreCase)) issues.Add("Couleur criarde interdite (#65a30d) : utilise une palette harmonieuse.");
+            if (html.Contains("#65a30d", StringComparison.OrdinalIgnoreCase)) issues.Add("Couleur criarde interdite (#65a30d) : utilise une palette harmonieuse.");
 
             if (!isMobile && Regex.Matches(html, @"data-view\s*=", RegexOptions.IgnoreCase).Count < 3)
             {
-                issues.Add("Architecture SPA absente : il faut plusieurs vues commutables <section data-view=\"home|explore|create|checkout|account\"> reliées par data-nav.");
+                issues.Add("Architecture SPA absente : il faut plusieurs vues commutables <section data-view=\"home|explore|create|checkout|account\"> reliées par data-nav.");
             }
 
             // Les href="#" ne sont plus un défaut : NormalizeHtml les remplace par href="javascript:void(0)".

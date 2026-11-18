@@ -104,20 +104,20 @@ namespace IsMocStudio.Business.Services
             if (settings is null)
             {
                 var reason = SmtpSettings.MissingReason(_configuration);
-                _logger.LogError("E-mail « {Subject} » non envoyé : SMTP non configuré ({Reason}).", subject, reason);
-                throw new EmailDeliveryException(NotConfiguredMessage, $"SMTP non configuré : {reason}.");
+                _logger.LogError("E-mail « {Subject} » non envoyé : SMTP non configuré ({Reason}).", subject, reason);
+                throw new EmailDeliveryException(NotConfiguredMessage, $"SMTP non configuré : {reason}.");
             }
 
             var recipient = toEmail?.Trim() ?? string.Empty;
             if (!MailAddress.TryCreate(recipient, out var recipientAddress))
             {
-                _logger.LogError("E-mail « {Subject} » non envoyé : adresse destinataire invalide ({Recipient}).", subject, Mask(recipient));
+                _logger.LogError("E-mail « {Subject} » non envoyé : adresse destinataire invalide ({Recipient}).", subject, Mask(recipient));
                 throw new EmailDeliveryException(FailedMessage, "Adresse destinataire invalide.");
             }
 
             if (settings.FromLooksLikeSmtpLogin)
             {
-                _logger.LogWarning("Expéditeur {From} : identifiant SMTP, probablement refusé par le fournisseur. Définissez Smtp__From avec une adresse validée.", settings.From);
+                _logger.LogWarning("Expéditeur {From} : identifiant SMTP, probablement refusé par le fournisseur. Définissez Smtp__From avec une adresse validée.", settings.From);
             }
 
             using var message = BuildMessage(settings, recipientAddress, subject, body);
@@ -141,7 +141,7 @@ namespace IsMocStudio.Business.Services
             {
                 var diagnostic = Describe(exception, settings);
                 // Journal complet (code SMTP, réponse du serveur, expéditeur, destinataire masqué) ; jamais d'identifiants.
-                _logger.LogError(exception, "E-mail « {Subject} » NON envoyé via {Server}:{Port} (expéditeur {From}, destinataire {Recipient}) : {Diagnostic}",
+                _logger.LogError(exception, "E-mail « {Subject} » NON envoyé via {Server}:{Port} (expéditeur {From}, destinataire {Recipient}) : {Diagnostic}",
                     subject, settings.Server, settings.Port, settings.From, Mask(recipient), diagnostic);
                 throw new EmailDeliveryException(FailedMessage, diagnostic, exception);
             }
@@ -196,14 +196,14 @@ namespace IsMocStudio.Business.Services
         /// <summary>Diagnostic lisible d'un échec SMTP (code, réponse du serveur, cause réseau).</summary>
         private static string Describe(Exception exception, SmtpSettings settings) => exception switch
         {
-            SmtpFailedRecipientException recipient => $"destinataire refusé par le serveur (code {(int)recipient.StatusCode} {recipient.StatusCode}) : {recipient.Message}",
+            SmtpFailedRecipientException recipient => $"destinataire refusé par le serveur (code {(int)recipient.StatusCode} {recipient.StatusCode}) : {recipient.Message}",
             SmtpException smtp when smtp.StatusCode is SmtpStatusCode.MustIssueStartTlsFirst or SmtpStatusCode.ClientNotPermitted
-                => $"authentification ou TLS refusés (code {(int)smtp.StatusCode} {smtp.StatusCode}) : vérifiez Smtp__User, Smtp__Pass et Smtp__EnableSsl. {smtp.Message}",
+                => $"authentification ou TLS refusés (code {(int)smtp.StatusCode} {smtp.StatusCode}) : vérifiez Smtp__User, Smtp__Pass et Smtp__EnableSsl. {smtp.Message}",
             SmtpException smtp when smtp.Message.Contains("authentic", StringComparison.OrdinalIgnoreCase) || (int)smtp.StatusCode == 535
-                => $"identifiants SMTP refusés (code {(int)smtp.StatusCode}) : vérifiez Smtp__User et Smtp__Pass (clé SMTP Brevo, pas le mot de passe du compte). {smtp.Message}",
+                => $"identifiants SMTP refusés (code {(int)smtp.StatusCode}) : vérifiez Smtp__User et Smtp__Pass (clé SMTP Brevo, pas le mot de passe du compte). {smtp.Message}",
             SmtpException smtp when smtp.Message.Contains("sender", StringComparison.OrdinalIgnoreCase) || smtp.Message.Contains("from", StringComparison.OrdinalIgnoreCase)
-                => $"expéditeur {settings.From} refusé (code {(int)smtp.StatusCode}) : il doit être validé chez le fournisseur. {smtp.Message} {smtp.InnerException?.Message}".Trim(),
-            SmtpException smtp => $"erreur SMTP (code {(int)smtp.StatusCode} {smtp.StatusCode}) : {smtp.Message} {smtp.InnerException?.Message}".Trim(),
+                => $"expéditeur {settings.From} refusé (code {(int)smtp.StatusCode}) : il doit être validé chez le fournisseur. {smtp.Message} {smtp.InnerException?.Message}".Trim(),
+            SmtpException smtp => $"erreur SMTP (code {(int)smtp.StatusCode} {smtp.StatusCode}) : {smtp.Message} {smtp.InnerException?.Message}".Trim(),
             OperationCanceledException => $"aucune réponse de {settings.Server}:{settings.Port} en {SendTimeoutMilliseconds / 1000} s (port bloqué ou serveur injoignable).",
             _ => $"{exception.GetType().Name} : {exception.Message} {exception.InnerException?.Message}".Trim(),
         };
