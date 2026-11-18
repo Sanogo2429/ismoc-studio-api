@@ -21,10 +21,10 @@ namespace IsMocStudio.Core.Interfaces.Services
 
     public sealed record AiQuotaStatus(bool Unlimited, int GenerationsLimit, int RefinementsLimit, int RemainingGenerations, int RemainingRefinements, int MaxRequestsPerMinute);
 
-    /// <summary>Crédits IA gratuits par utilisateur (App_Data/ai-quotas.json) et limite anti-spam par minute.</summary>
+    /// <summary>Crédits IA gratuits par utilisateur (table AiQuotaUsages) et limite anti-spam par minute.</summary>
     public interface IAiQuotaService
     {
-        AiQuotaStatus GetStatus(string userId, bool unlimited);
+        Task<AiQuotaStatus> GetStatusAsync(string userId, bool unlimited, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Vérifie la limite par minute (si <paramref name="applyRateLimit"/>) puis consomme un crédit

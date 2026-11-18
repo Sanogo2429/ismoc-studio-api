@@ -74,7 +74,7 @@ namespace IsMocStudio.api.Controllers
 
             var unlimited = await HasUnlimitedAiAsync(userId);
             var decision = await _aiQuotaService.TryConsumeAsync(userId, kind, unlimited, applyRateLimit: !IsAdmin(), HttpContext.RequestAborted);
-            var status = _aiQuotaService.GetStatus(userId, unlimited);
+            var status = await _aiQuotaService.GetStatusAsync(userId, unlimited, HttpContext.RequestAborted);
             return decision switch
             {
                 AiQuotaDecision.QuotaExceeded => StatusCode(StatusCodes.Status429TooManyRequests, new
@@ -110,7 +110,7 @@ namespace IsMocStudio.api.Controllers
         {
             var userId = CurrentUserId();
             if (userId is null) return Unauthorized(new { Message = "Utilisateur non identifié." });
-            return Utf8Json(QuotaPayload(_aiQuotaService.GetStatus(userId, await HasUnlimitedAiAsync(userId))));
+            return Utf8Json(QuotaPayload(await _aiQuotaService.GetStatusAsync(userId, await HasUnlimitedAiAsync(userId), HttpContext.RequestAborted)));
         }
 
         private static bool IsPricingQuestion(string instruction) => PricingQuestion.IsMatch(instruction) && !EditCommand.IsMatch(instruction);

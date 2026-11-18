@@ -60,10 +60,11 @@ namespace IsMocStudio.api.Controllers
                 TotalClientsCount = users.Values.Count(user => !string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase))
             };
 
+            var withDeliverable = await _deliverableService.ProjectIdsWithDeliverableAsync(HttpContext.RequestAborted);
             var projects = allThreads
                 .Select(memory => new { memory, lastActivity = LastActivity(memory) })
                 .OrderByDescending(item => item.lastActivity)
-                .Select(item => ProjectOverview(item.memory, item.lastActivity, users))
+                .Select(item => ProjectOverview(item.memory, item.lastActivity, users, withDeliverable))
                 .ToList();
 
             return Utf8Json(new { stats, projects });
@@ -125,7 +126,7 @@ namespace IsMocStudio.api.Controllers
             return lastMessage > memory.UpdatedAt ? lastMessage : memory.UpdatedAt;
         }
 
-        private object ProjectOverview(ProjectMemoryDto memory, DateTimeOffset lastActivity, IReadOnlyDictionary<string, User> users)
+        private static object ProjectOverview(ProjectMemoryDto memory, DateTimeOffset lastActivity, IReadOnlyDictionary<string, User> users, IReadOnlySet<string> withDeliverable)
         {
             users.TryGetValue(memory.OwnerId, out var owner);
             var order = memory.Order;
@@ -147,7 +148,7 @@ namespace IsMocStudio.api.Controllers
                 memory.InitialIdea,
                 memory.CreatedAt,
                 LastActivityAt = lastActivity,
-                HasDeliverable = memory.Status != ProjectStatuses.Draft && _deliverableService.Exists(memory.ProjectId),
+                HasDeliverable = memory.Status != ProjectStatuses.Draft && withDeliverable.Contains(memory.ProjectId),
                 Order = order is null ? null : new
                 {
                     order.InvoiceNumber,

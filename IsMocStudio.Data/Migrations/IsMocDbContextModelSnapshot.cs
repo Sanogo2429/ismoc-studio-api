@@ -22,6 +22,26 @@ namespace IsMocStudio.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("IsMocStudio.Core.Entities.AiQuotaUsage", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("GenerationsUsed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RefinementsUsed")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("AiQuotaUsages", (string)null);
+                });
+
             modelBuilder.Entity("IsMocStudio.Core.Entities.Project", b =>
                 {
                     b.Property<int>("Id")
@@ -62,6 +82,73 @@ namespace IsMocStudio.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("IsMocStudio.Core.Entities.ProjectDeliverableRecord", b =>
+                {
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("DesignHtml")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SpecificationJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ProjectId");
+
+                    b.ToTable("ProjectDeliverables", (string)null);
+                });
+
+            modelBuilder.Entity("IsMocStudio.Core.Entities.ProjectMemoryRecord", b =>
+                {
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ProjectName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("ThreadType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ProjectId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("ProjectMemories", (string)null);
                 });
 
             modelBuilder.Entity("IsMocStudio.Core.Entities.User", b =>

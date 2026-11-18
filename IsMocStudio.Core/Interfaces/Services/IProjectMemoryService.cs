@@ -3,7 +3,7 @@ using IsMocStudio.Core.DTOs;
 namespace IsMocStudio.Core.Interfaces.Services
 {
     /// <summary>
-    /// Mémoire persistante d'un projet IsMoc : un fichier JSON par projet (App_Data/Memories/{projectId}.json).
+    /// Mémoire persistante d'un projet IsMoc : une ligne par projet dans PostgreSQL (table ProjectMemories, document jsonb).
     /// </summary>
     public interface IProjectMemoryService
     {

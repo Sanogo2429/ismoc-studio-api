@@ -13,6 +13,11 @@ namespace IsMocStudio.Data.Context
         public DbSet<User> Users { get; set; }
         public DbSet<Project> Projects { get; set; }
 
+        // Données qui étaient dans App_Data (disque effacé à chaque redéploiement Render).
+        public DbSet<ProjectMemoryRecord> ProjectMemories => Set<ProjectMemoryRecord>();
+        public DbSet<ProjectDeliverableRecord> ProjectDeliverables => Set<ProjectDeliverableRecord>();
+        public DbSet<AiQuotaUsage> AiQuotaUsages => Set<AiQuotaUsage>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -79,6 +84,45 @@ namespace IsMocStudio.Data.Context
                     .WithMany()
                     .HasForeignKey(p => p.UserId)
                     .OnDelete(DeleteBehavior.Cascade); // Si on supprime l'utilisateur, ses projets sont nettoyés
+            });
+
+            // ==========================================
+            // DISCUSSIONS / PROJETS (ex-App_Data/Memories) : document jsonb + colonnes de recherche
+            // ==========================================
+            modelBuilder.Entity<ProjectMemoryRecord>(entity =>
+            {
+                entity.ToTable("ProjectMemories");
+                entity.HasKey(memory => memory.ProjectId);
+                entity.Property(memory => memory.ProjectId).HasMaxLength(32);
+                entity.Property(memory => memory.OwnerId).IsRequired().HasMaxLength(64);
+                entity.Property(memory => memory.ThreadType).IsRequired().HasMaxLength(20);
+                entity.Property(memory => memory.Status).IsRequired().HasMaxLength(30);
+                entity.Property(memory => memory.ProjectName).IsRequired().HasMaxLength(200);
+                entity.Property(memory => memory.Document).IsRequired().HasColumnType("jsonb");
+                entity.HasIndex(memory => memory.OwnerId);
+                entity.HasIndex(memory => memory.UpdatedAt);
+            });
+
+            // ==========================================
+            // DOSSIERS DE CONCEPTION (ex-App_Data/Deliverables) : textes conservés tels quels
+            // ==========================================
+            modelBuilder.Entity<ProjectDeliverableRecord>(entity =>
+            {
+                entity.ToTable("ProjectDeliverables");
+                entity.HasKey(deliverable => deliverable.ProjectId);
+                entity.Property(deliverable => deliverable.ProjectId).HasMaxLength(32);
+                entity.Property(deliverable => deliverable.DesignHtml).IsRequired().HasColumnType("text");
+                entity.Property(deliverable => deliverable.SpecificationJson).IsRequired().HasColumnType("text");
+            });
+
+            // ==========================================
+            // CRÉDITS IA GRATUITS (ex-App_Data/ai-quotas.json)
+            // ==========================================
+            modelBuilder.Entity<AiQuotaUsage>(entity =>
+            {
+                entity.ToTable("AiQuotaUsages");
+                entity.HasKey(usage => usage.UserId);
+                entity.Property(usage => usage.UserId).HasMaxLength(64);
             });
         }
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using IsMocStudio.Data.Context;
+using IsMocStudio.Data.Services;
 using IsMocStudio.Core.Interfaces.Repositories;
 using IsMocStudio.Core.Interfaces.Services;
 using IsMocStudio.Business.Services;
@@ -21,9 +22,12 @@ using System.Text.Unicode;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Base de données
-builder.Services.AddDbContext<IsMocDbContext>(options =>
+// 1. Base de données (PostgreSQL ; en production Supabase via le « Session pooler », port 5432).
+// Fabrique de contextes pour les services singleton (mémoires de projet, hub SignalR, crédits IA)
+// + contexte par requête pour les dépôts (UnitOfWork).
+builder.Services.AddDbContextFactory<IsMocDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped(serviceProvider => serviceProvider.GetRequiredService<IDbContextFactory<IsMocDbContext>>().CreateDbContext());
 
 // 2. Injection de dépendances
 builder.Services.AddScoped<IUnitOfWork, IsMocStudio.Data.UnitOfWork.UnitOfWork>();
@@ -40,10 +44,9 @@ builder.Services.AddHttpClient<AnthropicMessagesClient>(client =>
     client.BaseAddress = new Uri("https://api.anthropic.com/");
     client.Timeout = OpenAiMvpService.GenerationTimeout;
 });
-builder.Services.AddSingleton<IProjectMemoryService>(_ => new ProjectMemoryService(
-    Path.Combine(builder.Environment.ContentRootPath, "App_Data", "Memories")));
-builder.Services.AddSingleton<IProjectDeliverableService>(_ => new ProjectDeliverableService(
-    Path.Combine(builder.Environment.ContentRootPath, "App_Data", "Deliverables")));
+// Discussions, dossiers de conception et crédits IA : en base (le disque du conteneur Render est éphémère).
+builder.Services.AddSingleton<IProjectMemoryService, EfProjectMemoryService>();
+builder.Services.AddSingleton<IProjectDeliverableService, EfProjectDeliverableService>();
 builder.Services.AddSingleton<IProjectAttachmentService>(_ => new ProjectAttachmentService(
     Path.Combine(builder.Environment.ContentRootPath, "App_Data", "Attachments")));
 
@@ -60,9 +63,7 @@ builder.Services.AddSignalR(options =>
 builder.Services.AddSingleton<IAdminAccessRegistry>(serviceProvider => new AdminAccessRegistry(
     serviceProvider.GetRequiredService<IConfiguration>()));
 // Crédits IA gratuits par compte + limite anti-spam (« AiQuotas » dans appsettings.json).
-builder.Services.AddSingleton<IAiQuotaService>(serviceProvider => new AiQuotaService(
-    serviceProvider.GetRequiredService<IConfiguration>(),
-    Path.Combine(builder.Environment.ContentRootPath, "App_Data", "ai-quotas.json")));
+builder.Services.AddSingleton<IAiQuotaService, EfAiQuotaService>();
 builder.Services.AddHttpClient();
 // Singleton sans état (configuration + journal) : utilisable par les envois en arrière-plan après la requête.
 builder.Services.AddSingleton<IEmailService, EmailService>();
@@ -203,7 +204,7 @@ builder.Services.AddHsts(options =>
     options.IncludeSubDomains = true;
 });
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 // --- 4. Configuration de Swagger pour accepter le Token ---
 builder.Services.AddSwaggerGen(c =>
@@ -234,10 +235,31 @@ var app = builder.Build();
 // --- Promotion automatique des administrateurs (aucune manipulation manuelle de la base) ---
 // Seuls les comptes EXISTANTS dont l'e-mail figure dans « AdminEmails » passent en rôle Admin.
 // (Plus de promotion par nom affiché ni du « premier inscrit » : n'importe qui pourrait en profiter.)
-// La base n'est pas migrée ici : une base injoignable n'empêche pas l'API de démarrer.
+// Une base injoignable n'empêche pas l'API de démarrer (erreur journalisée, /health en échec).
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    // --- Schéma à jour (Render gratuit n'a pas de shell : les migrations s'appliquent au démarrage) ---
+    // puis import unique des anciennes données App_Data (discussions, dossiers de conception, crédits IA).
+    try
+    {
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<IsMocDbContext>>();
+        await using (var db = await contextFactory.CreateDbContextAsync())
+        {
+            await db.Database.MigrateAsync();
+        }
+
+        var imported = await LegacyAppDataImporter.ImportAsync(contextFactory, Path.Combine(app.Environment.ContentRootPath, "App_Data"), logger);
+        if (imported.Memories + imported.Deliverables + imported.Quotas + imported.Skipped + imported.Failed > 0)
+            logger.LogInformation("Import App_Data → PostgreSQL : {Memories} discussion(s), {Deliverables} dossier(s) de conception, {Quotas} compte(s) de crédits IA, {Skipped} déjà en base, {Failed} en échec.",
+                imported.Memories, imported.Deliverables, imported.Quotas, imported.Skipped, imported.Failed);
+    }
+    catch (Exception exception)
+    {
+        logger.LogError(exception, "Migration ou import de la base impossible au démarrage (base de données indisponible ?).");
+    }
+
     try
     {
         // Rôles alignés sur « AdminEmails » : promotion des comptes listés, rétrogradation en Client des autres Admin.

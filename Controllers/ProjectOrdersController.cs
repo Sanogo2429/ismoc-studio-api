@@ -174,7 +174,7 @@ namespace IsMocStudio.api.Controllers
             var memory = await GetAccessibleMemoryAsync(projectId, allowAdmin: true);
             if (memory is null) return NotFound(new { Message = "Projet introuvable." });
 
-            if (!_deliverableService.Exists(projectId))
+            if (!await _deliverableService.ExistsAsync(projectId, HttpContext.RequestAborted))
             {
                 return NotFound(new { Message = "Aucun dossier de conception : le projet n'a pas encore été commandé." });
             }
@@ -193,7 +193,6 @@ namespace IsMocStudio.api.Controllers
             return Utf8Json(new
             {
                 projectId,
-                folder = $"App_Data/Deliverables/{projectId}/",
                 generatedAt = deliverable.Value.GeneratedAt,
                 files = new[] { "design-valide.html", "cahier-des-charges.json" },
                 designHtml = deliverable.Value.DesignHtml,

@@ -4,15 +4,18 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
 using IsMocStudio.Core.DTOs;
+using IsMocStudio.Core.Entities;
 using IsMocStudio.Core.Interfaces.Services;
+using IsMocStudio.Data.Context;
+using Microsoft.EntityFrameworkCore;
 
-namespace IsMocStudio.Business.Services
+namespace IsMocStudio.Data.Services
 {
     /// <summary>
-    /// Écrit le dossier prêt pour l'équipe de développement dans App_Data/Deliverables/{projectId}/ :
+    /// Dossier prêt pour l'équipe de développement, en base (table ProjectDeliverables) :
     /// design-valide.html (maquette validée) et cahier-des-charges.json (brief, préférences, devis €, écrans, historique).
     /// </summary>
-    public sealed class ProjectDeliverableService : IProjectDeliverableService
+    public sealed class EfProjectDeliverableService : IProjectDeliverableService
     {
         public const string DesignFileName = "design-valide.html";
         public const string SpecificationFileName = "cahier-des-charges.json";
@@ -24,19 +27,13 @@ namespace IsMocStudio.Business.Services
             Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
         };
 
-        private readonly string _rootDirectory;
+        private readonly IDbContextFactory<IsMocDbContext> _contextFactory;
 
-        public ProjectDeliverableService(string rootDirectory)
-        {
-            if (string.IsNullOrWhiteSpace(rootDirectory)) throw new ArgumentException("Le dossier des livrables est obligatoire.", nameof(rootDirectory));
-            _rootDirectory = rootDirectory;
-            Directory.CreateDirectory(_rootDirectory);
-        }
+        public EfProjectDeliverableService(IDbContextFactory<IsMocDbContext> contextFactory) => _contextFactory = contextFactory;
 
         public async Task<DateTimeOffset> WriteAsync(ProjectMemoryDto memory, CancellationToken cancellationToken = default)
         {
-            var directory = GetDirectory(memory.ProjectId);
-            Directory.CreateDirectory(directory);
+            ValidateProjectId(memory.ProjectId);
             var generatedAt = DateTimeOffset.UtcNow;
 
             var specification = new
@@ -78,23 +75,36 @@ namespace IsMocStudio.Business.Services
                 clientMessages = memory.ClientMessages
             };
 
-            await WriteAtomicallyAsync(Path.Combine(directory, DesignFileName), memory.CurrentHtml, cancellationToken);
-            await WriteAtomicallyAsync(Path.Combine(directory, SpecificationFileName), JsonSerializer.Serialize(specification, SerializerOptions), cancellationToken);
+            await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            var record = await db.ProjectDeliverables.FindAsync([memory.ProjectId], cancellationToken);
+            if (record is null) db.ProjectDeliverables.Add(record = new ProjectDeliverableRecord { ProjectId = memory.ProjectId });
+            record.DesignHtml = memory.CurrentHtml ?? string.Empty;
+            record.SpecificationJson = JsonSerializer.Serialize(specification, SerializerOptions);
+            record.GeneratedAt = generatedAt;
+            await db.SaveChangesAsync(cancellationToken);
             return generatedAt;
         }
 
-        public bool Exists(string projectId) => File.Exists(Path.Combine(GetDirectory(projectId), SpecificationFileName));
+        public async Task<bool> ExistsAsync(string projectId, CancellationToken cancellationToken = default)
+        {
+            ValidateProjectId(projectId);
+            await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            return await db.ProjectDeliverables.AnyAsync(record => record.ProjectId == projectId, cancellationToken);
+        }
+
+        public async Task<IReadOnlySet<string>> ProjectIdsWithDeliverableAsync(CancellationToken cancellationToken = default)
+        {
+            await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            var ids = await db.ProjectDeliverables.Select(record => record.ProjectId).ToListAsync(cancellationToken);
+            return ids.ToHashSet(StringComparer.Ordinal);
+        }
 
         public async Task<(string DesignHtml, string SpecificationJson, DateTimeOffset GeneratedAt)?> ReadAsync(string projectId, CancellationToken cancellationToken = default)
         {
-            var directory = GetDirectory(projectId);
-            var designPath = Path.Combine(directory, DesignFileName);
-            var specificationPath = Path.Combine(directory, SpecificationFileName);
-            if (!File.Exists(designPath) || !File.Exists(specificationPath)) return null;
-
-            var design = await File.ReadAllTextAsync(designPath, Encoding.UTF8, cancellationToken);
-            var specification = await File.ReadAllTextAsync(specificationPath, Encoding.UTF8, cancellationToken);
-            return (design, specification, new DateTimeOffset(File.GetLastWriteTimeUtc(specificationPath), TimeSpan.Zero));
+            ValidateProjectId(projectId);
+            await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            var record = await db.ProjectDeliverables.AsNoTracking().SingleOrDefaultAsync(item => item.ProjectId == projectId, cancellationToken);
+            return record is null ? null : (record.DesignHtml, record.SpecificationJson, record.GeneratedAt);
         }
 
         public async Task<byte[]?> ZipAsync(string projectId, CancellationToken cancellationToken = default)
@@ -112,12 +122,6 @@ namespace IsMocStudio.Business.Services
             return buffer.ToArray();
         }
 
-        private string GetDirectory(string projectId)
-        {
-            if (!Guid.TryParseExact(projectId, "N", out _)) throw new ArgumentException("L’identifiant du projet est invalide.", nameof(projectId));
-            return Path.Combine(_rootDirectory, projectId);
-        }
-
         private static async Task AddEntryAsync(ZipArchive archive, string name, string content, CancellationToken cancellationToken)
         {
             var entry = archive.CreateEntry(name, CompressionLevel.Optimal);
@@ -125,18 +129,9 @@ namespace IsMocStudio.Business.Services
             await stream.WriteAsync(Utf8NoBom.GetBytes(content), cancellationToken);
         }
 
-        private static async Task WriteAtomicallyAsync(string path, string content, CancellationToken cancellationToken)
+        private static void ValidateProjectId(string projectId)
         {
-            var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
-            try
-            {
-                await File.WriteAllTextAsync(temporaryPath, content, Utf8NoBom, cancellationToken);
-                File.Move(temporaryPath, path, true);
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
-            }
+            if (!Guid.TryParseExact(projectId, "N", out _)) throw new ArgumentException("L’identifiant du projet est invalide.", nameof(projectId));
         }
     }
 }

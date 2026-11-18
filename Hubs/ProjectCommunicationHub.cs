@@ -168,7 +168,7 @@ namespace IsMocStudio.api.Hubs
             return message;
         }
 
-        /// <summary>Ajout atomique d'un message dans App_Data/Memories/{projectId}.json.</summary>
+        /// <summary>Ajout atomique d'un message dans la mémoire du projet (verrou de ligne PostgreSQL).</summary>
         public static async Task AppendMessageAsync(IProjectMemoryService memoryService, string projectId, ClientMessageDto message, CancellationToken cancellationToken)
         {
             var updated = await memoryService.UpdateAsync(projectId, memory => memory.ClientMessages.Add(message), cancellationToken);
